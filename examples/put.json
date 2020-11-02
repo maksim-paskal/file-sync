@@ -1,0 +1,6 @@
+{
+  "type": "PUT",
+  "fileName": "test.txt",
+  "fileContent": "test2",
+  "fileContentBase64": "dGVzdAo="
+}
