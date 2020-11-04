@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type Message struct {
@@ -22,10 +23,13 @@ type Response struct {
 }
 
 type API struct {
+	config *Config
 }
 
-func newAPI() *API {
-	api := API{}
+func newAPI(config *Config) *API {
+	api := API{
+		config: config,
+	}
 
 	return &api
 }
@@ -47,11 +51,21 @@ func (api *API) makePUT(message Message) error {
 	}
 
 	if message.FilePermission == 0 {
-		message.FilePermission = uint32(0644)
+		i64, err := strconv.ParseUint(*api.config.DefaultFilePermission, 10, 32)
+		if err != nil {
+			return err
+		}
+
+		message.FilePermission = uint32(i64)
 	}
 
 	if message.DirPermission == 0 {
-		message.DirPermission = uint32(511)
+		i64, err := strconv.ParseUint(*api.config.DefaultDirPermission, 10, 32)
+		if err != nil {
+			return err
+		}
+
+		message.DirPermission = uint32(i64)
 	}
 
 	fileDir := filepath.Dir(message.FileName)

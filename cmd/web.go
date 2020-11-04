@@ -2,21 +2,22 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"path"
 	"strings"
 )
 
 type Web struct {
-	api   *API
-	queue *Queue
+	api    *API
+	queue  *Queue
+	config *Config
 }
 
-func newWeb(queue *Queue) *Web {
+func newWeb(config *Config, queue *Queue) *Web {
 	web := Web{
-		api:   newAPI(),
-		queue: queue,
+		api:    newAPI(config),
+		queue:  queue,
+		config: config,
 	}
 
 	http.HandleFunc("/api/endpoint", web.handlerEndpoint)
@@ -48,7 +49,7 @@ func (web *Web) handlerEndpoint(w http.ResponseWriter, r *http.Request) {
 		case "DELETE":
 			err = web.api.makeDELETE(message)
 		default:
-			err = fmt.Errorf("unknown type %s", message.Type)
+			err = ErrUnknownType
 		}
 	}
 

@@ -16,7 +16,7 @@ func main() {
 		fmt.Printf("new=%s\n", value)
 	}
 
-	newWeb(queue)
+	newWeb(config, queue)
 
 	<-ctx.Done()
 }
