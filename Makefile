@@ -6,8 +6,12 @@ lint:
 run:
 	go build -o file-sync ./cmd
 	./file-sync
+runDocker:
+	docker-compose up
 testPut:
-	curl -v --data-binary '@examples/put.json' http://localhost:9335/api/endpoint
+	curl --data-binary '@examples/put.json' http://localhost:9335/api/endpoint
 	cat data/test.txt
 testDelete:
 	curl --data-binary '@examples/delete.json' http://localhost:9335/api/endpoint
+redisStart:
+	docker run --name some-redis -p 6379:6379 -d redis
