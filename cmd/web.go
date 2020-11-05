@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -72,7 +73,7 @@ func newWeb(config *Config, queue *Queue) *Web {
 
 		err := server.ListenAndServe()
 		if err != nil {
-			panic(err)
+			log.Panic(err)
 		}
 	}()
 
@@ -130,7 +131,20 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	data := r.Form.Get("value")
 
 	if len(data) == 0 {
-		http.Error(w, "no value", http.StatusInternalServerError)
+		http.Error(w, "no value", http.StatusBadRequest)
+
+		return
+	}
+
+	matched, err := regexp.Match(`(add|patch|delete):.+`, []byte(data))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	if !matched {
+		http.Error(w, "invalid format", http.StatusInternalServerError)
 
 		return
 	}

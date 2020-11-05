@@ -6,8 +6,11 @@ lint:
 run:
 	go build -o file-sync ./cmd
 	./file-sync
+clean:
+	rm -rf file-sync
+	docker-compose down --remove-orphans 
 runDocker:
-	docker-compose up
+	docker-compose down --remove-orphans && docker-compose up
 testPut:
 	curl --data-binary '@examples/put.json' http://localhost:9335/api/endpoint
 	cat data/test.txt

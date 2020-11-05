@@ -20,6 +20,10 @@ COPY --from=build /usr/src/app/file-sync /app/file-sync
 
 WORKDIR /app
 
+COPY ssl/ca.crt /app/ssl/ca.crt
+COPY ssl/server.crt /app/ssl/server.crt
+COPY ssl/server.key /app/ssl/server.key
+
 RUN addgroup -g 101 -S app \
 && adduser -u 101 -D -S -G app app \
 && chown -R 101 /app

@@ -1,14 +1,24 @@
 version: '3'
 
 services:
-  redis:
+  redis1:
     image: redis:alpine
-  file-sync:
+  file-sync1:
     build:
       context: .
     command:
     - /app/file-sync
-    - -redis.address=redis:6379
+    - -redis.address=redis1:6379
     ports:
-    - 9335:9335
+    - 19336:9336
+  redis2:
+    image: redis:alpine
+  file-sync2:
+    build:
+      context: .
+    command:
+    - /app/file-sync
+    - -redis.address=redis2:6379
+    ports:
+    - 29336:9336
       

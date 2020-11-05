@@ -2,18 +2,37 @@ package main
 
 import (
 	"context"
-	"fmt"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	config := newConfig()
-
 	ctx := context.Background()
 
+	config := newConfig()
+
+	log.SetLevel(log.InfoLevel)
+
+	if log.GetLevel() == log.DebugLevel {
+		log.SetReportCaller(true)
+	}
+
 	queue := newQueue(config, "test")
+	api := newAPI(config)
 
 	queue.onNewValue = func(value string) {
-		fmt.Printf("new=%s\n", value)
+		log.Infof("new=%s", value)
+
+		message := Message{
+			Type:        "PUT",
+			FileName:    "aaa.txt",
+			FileContent: "aaaaa",
+		}
+
+		err := api.makeTLSCall(message)
+		if err != nil {
+			log.Error(err)
+		}
 	}
 
 	newWeb(config, queue)
