@@ -1,10 +1,15 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"path"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Web struct {
@@ -20,11 +25,52 @@ func newWeb(config *Config, queue *Queue) *Web {
 		config: config,
 	}
 
-	http.HandleFunc("/api/endpoint", web.handlerEndpoint)
-	http.HandleFunc("/api/queue", web.handlerQueue)
+	go func() {
+		caCertPEM, err := ioutil.ReadFile("ssl/ca.crt")
+		if err != nil {
+			log.Panic("can not load ca")
+		}
+
+		roots := x509.NewCertPool()
+		ok := roots.AppendCertsFromPEM(caCertPEM)
+
+		if !ok {
+			log.Panic("failed to parse root certificate")
+		}
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/api/sync", web.handlerSync)
+
+		server := &http.Server{
+			Addr:    ":9335",
+			Handler: mux,
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				ClientCAs:  roots,
+			},
+		}
+
+		log.Info("Start TLS server on :9335")
+
+		err = server.ListenAndServeTLS("ssl/server.crt", "ssl/server.key")
+		if err != nil {
+			log.Panic(err)
+		}
+	}()
 
 	go func() {
-		err := http.ListenAndServe(":9335", nil)
+		mux := http.NewServeMux()
+		mux.HandleFunc("/api/queue", web.handlerQueue)
+
+		server := &http.Server{
+			Addr:    ":9336",
+			Handler: mux,
+		}
+
+		log.Info("Start server on :9336")
+
+		err := server.ListenAndServe()
 		if err != nil {
 			panic(err)
 		}
@@ -33,7 +79,7 @@ func newWeb(config *Config, queue *Queue) *Web {
 	return &web
 }
 
-func (web *Web) handlerEndpoint(w http.ResponseWriter, r *http.Request) {
+func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	message := Message{}
 	err := json.NewDecoder(r.Body).Decode(&message)
 
