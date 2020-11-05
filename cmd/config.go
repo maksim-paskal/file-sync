@@ -3,16 +3,18 @@ package main
 import "flag"
 
 type Config struct {
-	RedisAddress          *string
-	DefaultFilePermission *string
-	DefaultDirPermission  *string
+	httpAddress    *string
+	httpsAddress   *string
+	sourceDir      *string
+	destinationDir *string
 }
 
 func newConfig() *Config {
 	config := Config{
-		RedisAddress:          flag.String("redis.address", "localhost:6379", "address"),
-		DefaultFilePermission: flag.String("file.permission", "0644", "permission"),
-		DefaultDirPermission:  flag.String("dir.permission", "511", "permission"),
+		httpAddress:    flag.String("http.address", ":9336", "address"),
+		httpsAddress:   flag.String("https.address", ":9335", "address"),
+		sourceDir:      flag.String("dir.src", "data", "folder"),
+		destinationDir: flag.String("dir.dest", "data", "folder"),
 	}
 
 	flag.Parse()

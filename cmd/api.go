@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ type Message struct {
 	FileName          string `json:"fileName"`
 	FileContent       string `json:"fileContent"`
 	FileContentBase64 string `json:"fileContentBase64"`
+	SHA256            string `json:"SHA256"`
 }
 
 type Response struct {
@@ -68,10 +70,21 @@ func (api *API) makePUT(message Message) error {
 		return err
 	}
 
+	if len(message.SHA256) != 0 {
+		data, err := ioutil.ReadFile(message.FileName)
+		if err != nil {
+			return err
+		}
+
+		if message.SHA256 != NewSHA256(data) {
+			log.Warnf("file %s SHA256 check failed", message.FileName)
+		}
+	}
+
 	return nil
 }
 
-func (api *API) makeTLSCall(message Message) error {
+func (api *API) send(message Message) error {
 	ctx := context.Background()
 
 	// Load client cert
@@ -119,6 +132,10 @@ func (api *API) makeTLSCall(message Message) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("status != 200")
+	}
+
 	// Dump response
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -126,6 +143,17 @@ func (api *API) makeTLSCall(message Message) error {
 	}
 
 	log.Infof("result=%s", string(data))
+
+	results := Response{}
+
+	err = json.Unmarshal(data, &results)
+	if err != nil {
+		return err
+	}
+
+	if results.StatusCode != http.StatusOK {
+		return errors.New(results.StatusText)
+	}
 
 	return nil
 }

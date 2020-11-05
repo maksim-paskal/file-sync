@@ -3,9 +3,11 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -15,14 +17,12 @@ import (
 
 type Web struct {
 	api    *API
-	queue  *Queue
 	config *Config
 }
 
-func newWeb(config *Config, queue *Queue) *Web {
+func newWeb(config *Config) *Web {
 	web := Web{
 		api:    newAPI(config),
-		queue:  queue,
 		config: config,
 	}
 
@@ -43,7 +43,7 @@ func newWeb(config *Config, queue *Queue) *Web {
 		mux.HandleFunc("/api/sync", web.handlerSync)
 
 		server := &http.Server{
-			Addr:    ":9335",
+			Addr:    *config.httpsAddress,
 			Handler: mux,
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
@@ -52,7 +52,7 @@ func newWeb(config *Config, queue *Queue) *Web {
 			},
 		}
 
-		log.Info("Start TLS server on :9335")
+		log.Infof("Start TLS server on %s", server.Addr)
 
 		err = server.ListenAndServeTLS("ssl/server.crt", "ssl/server.key")
 		if err != nil {
@@ -65,11 +65,11 @@ func newWeb(config *Config, queue *Queue) *Web {
 		mux.HandleFunc("/api/queue", web.handlerQueue)
 
 		server := &http.Server{
-			Addr:    ":9336",
+			Addr:    *config.httpAddress,
 			Handler: mux,
 		}
 
-		log.Info("Start server on :9336")
+		log.Infof("Start server on %s", server.Addr)
 
 		err := server.ListenAndServe()
 		if err != nil {
@@ -86,7 +86,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 
 	message.Type = strings.ToUpper(message.Type)
 	if len(message.FileName) > 0 {
-		message.FileName = path.Join("./data", message.FileName)
+		message.FileName = path.Join(*web.config.destinationDir, message.FileName)
 	}
 
 	if err == nil {
@@ -136,7 +136,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	matched, err := regexp.Match(`(add|patch|delete):.+`, []byte(data))
+	matched, err := regexp.Match(`(put|patch|delete):.+`, []byte(data))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
@@ -144,14 +144,44 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !matched {
-		http.Error(w, "invalid format", http.StatusInternalServerError)
+		http.Error(w, "invalid format", http.StatusBadRequest)
 
 		return
 	}
 
-	web.queue.add(data)
+	dataValues := strings.Split(data, ":")
 
-	_, err = w.Write([]byte("ok"))
+	filePath := path.Join(*web.config.sourceDir, dataValues[1])
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.Error(w, "file not found", http.StatusBadRequest)
+
+		return
+	}
+
+	fileContent, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	message := Message{
+		Type:              dataValues[0],
+		FileName:          dataValues[1],
+		SHA256:            NewSHA256(fileContent),
+		FileContentBase64: base64.StdEncoding.EncodeToString(fileContent),
+	}
+
+	go func() {
+		err := web.api.send(message)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	js, _ := json.Marshal(message)
+
+	_, err = w.Write(js)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

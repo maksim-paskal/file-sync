@@ -2,10 +2,11 @@ lint:
 	go fmt ./cmd
 	go mod tidy
 	go test ./cmd
-	golangci-lint run --allow-parallel-runners -v --enable-all --fix
+	golangci-lint run --allow-parallel-runners -v --enable-all --disable funlen --fix
 run:
+	rm -rf data
 	go build -o file-sync ./cmd
-	./file-sync
+	./file-sync -dir.src=data-src
 clean:
 	rm -rf file-sync
 	docker-compose down --remove-orphans 

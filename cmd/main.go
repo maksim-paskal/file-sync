@@ -17,25 +17,7 @@ func main() {
 		log.SetReportCaller(true)
 	}
 
-	queue := newQueue(config, "test")
-	api := newAPI(config)
-
-	queue.onNewValue = func(value string) {
-		log.Infof("new=%s", value)
-
-		message := Message{
-			Type:        "PUT",
-			FileName:    "aaa.txt",
-			FileContent: "aaaaa",
-		}
-
-		err := api.makeTLSCall(message)
-		if err != nil {
-			log.Error(err)
-		}
-	}
-
-	newWeb(config, queue)
+	newWeb(config)
 
 	<-ctx.Done()
 }
