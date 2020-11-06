@@ -145,8 +145,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		err := web.api.send(message)
 		if err != nil {
-			js, _ := json.Marshal(message)
-			log.Error(err, string(js))
+			log.Error(err)
 		}
 	}()
 

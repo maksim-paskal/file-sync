@@ -58,7 +58,7 @@ func (api *API) makeDelete(message Message) error {
 		return err
 	}
 
-	log.Debugf("file deleted %s", message.FileName)
+	log.Infof("%s file %s", message.Type, message.FileName)
 
 	return nil
 }
@@ -78,11 +78,11 @@ func (api *API) makeSave(message Message) error {
 	switch message.Type {
 	case MessageTypePut:
 		if !isFileNameNotExists {
-			return fmt.Errorf("file must not exists")
+			return fmt.Errorf("file %s must not exists", message.FileName)
 		}
 	case MessageTypePatch:
 		if isFileNameNotExists {
-			return fmt.Errorf("file must exists")
+			return fmt.Errorf("file %s must exists", message.FileName)
 		}
 	default:
 		return fmt.Errorf("unknown type %s", message.Type)
@@ -111,8 +111,6 @@ func (api *API) makeSave(message Message) error {
 		return err
 	}
 
-	log.Debugf("file saved %s", message.FileName)
-
 	err = os.Chmod(message.FileName, 0664)
 	if err != nil {
 		return err
@@ -128,6 +126,8 @@ func (api *API) makeSave(message Message) error {
 			log.Warnf("file %s SHA256 check failed", message.FileName)
 		}
 	}
+
+	log.Infof("%s file %s", message.Type, message.FileName)
 
 	return nil
 }
@@ -192,7 +192,7 @@ func (api *API) send(message Message) error {
 		return err
 	}
 
-	log.Infof("url=%s,result=%s", url, string(data))
+	log.Debugf("url=%s,result=%s", url, string(data))
 
 	results := Response{}
 
