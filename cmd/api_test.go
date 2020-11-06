@@ -51,5 +51,12 @@ func TestGetMessageFromValue(t *testing.T) {
 
 			return
 		}
+
+		err = api.makeDELETE(message)
+		if err != nil {
+			t.Error(err)
+
+			return
+		}
 	}
 }
