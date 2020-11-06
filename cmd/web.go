@@ -138,6 +138,8 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	message, err := web.api.getMessageFromValue(value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
 	}
 
 	go func() {

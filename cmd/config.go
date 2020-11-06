@@ -1,9 +1,14 @@
 package main
 
-import "flag"
+import (
+	"flag"
+
+	log "github.com/sirupsen/logrus"
+)
 
 type Config struct {
 	logLevel       *string
+	logPretty      *bool
 	httpAddress    *string
 	httpsAddress   *string
 	sourceDir      *string
@@ -18,6 +23,7 @@ type Config struct {
 
 func newConfig() *Config {
 	config := Config{
+		logPretty:      flag.Bool("log.pretty", false, "logging level"),
 		logLevel:       flag.String("log.level", "INFO", "logging level"),
 		httpAddress:    flag.String("http.address", ":9336", "address"),
 		httpsAddress:   flag.String("https.address", ":9335", "address"),
@@ -33,6 +39,20 @@ func newConfig() *Config {
 	}
 
 	flag.Parse()
+
+	level, err := log.ParseLevel(*config.logLevel)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	log.SetLevel(level)
+	if !*config.logPretty {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+
+	if log.GetLevel() == log.DebugLevel {
+		log.SetReportCaller(true)
+	}
 
 	return &config
 }
