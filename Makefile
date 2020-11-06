@@ -38,8 +38,7 @@ initSSL:
 	openssl x509 -req -days 3650 -in ssl/client01.csr -CA ssl/ca.crt -CAkey ssl/ca.key -set_serial 01 -out ssl/client01.crt
 	openssl verify -verbose -CAfile ssl/ca.crt ssl/client01.crt
 testSSL:
-	curl http://localhost:9336/api/endpoint
 	curl http://localhost:9336/api/queue
 
-	curl -k --key ssl/client01.key --cert ssl/client01.crt https://localhost:9335/api/endpoint
-	curl -k https://localhost:9335/api/endpoint
+	curl -k --key ssl/client01.key --cert ssl/client01.crt https://localhost:9335/api/sync
+	curl -k https://localhost:9335/api/sync
