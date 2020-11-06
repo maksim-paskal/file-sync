@@ -3,13 +3,10 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path"
-	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -84,6 +81,11 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	message := Message{}
 	err := json.NewDecoder(r.Body).Decode(&message)
 
+	if log.GetLevel() <= log.DebugLevel {
+		r, _ := json.Marshal(message)
+		log.Debug(string(r))
+	}
+
 	message.Type = strings.ToUpper(message.Type)
 	if len(message.FileName) > 0 {
 		message.FileName = path.Join(*web.config.destinationDir, message.FileName)
@@ -100,7 +102,9 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	results := Response{}
+	results := Response{
+		FileName: message.FileName,
+	}
 
 	if err != nil {
 		results.StatusCode = 500
@@ -128,48 +132,11 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	data := r.Form.Get("value")
+	value := r.Form.Get("value")
 
-	if len(data) == 0 {
-		http.Error(w, "no value", http.StatusBadRequest)
-
-		return
-	}
-
-	matched, err := regexp.Match(`(put|patch|delete):.+`, []byte(data))
+	message, err := web.api.getMessageFromValue(value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
-
-	if !matched {
-		http.Error(w, "invalid format", http.StatusBadRequest)
-
-		return
-	}
-
-	dataValues := strings.Split(data, ":")
-
-	filePath := path.Join(*web.config.sourceDir, dataValues[1])
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		http.Error(w, "file not found", http.StatusBadRequest)
-
-		return
-	}
-
-	fileContent, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
-
-	message := Message{
-		Type:              dataValues[0],
-		FileName:          dataValues[1],
-		SHA256:            NewSHA256(fileContent),
-		FileContentBase64: base64.StdEncoding.EncodeToString(fileContent),
 	}
 
 	go func() {
@@ -179,9 +146,12 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	js, _ := json.Marshal(message)
+	if log.GetLevel() <= log.DebugLevel {
+		r, _ := json.Marshal(message)
+		log.Debug(string(r))
+	}
 
-	_, err = w.Write(js)
+	_, err = w.Write([]byte("ok"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

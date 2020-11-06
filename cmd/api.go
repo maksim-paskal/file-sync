@@ -8,10 +8,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -25,6 +29,7 @@ type Message struct {
 }
 
 type Response struct {
+	FileName   string `json:"fileName"`
 	StatusCode int    `json:"statusCode"`
 	StatusText string `json:"statusText"`
 }
@@ -42,10 +47,12 @@ func newAPI(config *Config) *API {
 }
 
 func (api *API) makeDELETE(message Message) error {
+	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
 	return os.Remove(message.FileName)
 }
 
 func (api *API) makePUT(message Message) error {
+	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
 	fileContent := []byte(message.FileContent)
 
 	if len(message.FileContentBase64) > 0 {
@@ -119,7 +126,9 @@ func (api *API) send(message Message) error {
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://localhost:9335/api/sync", bytes.NewBuffer(jsonStr))
+	url := fmt.Sprintf("https://%s/api/sync", *api.config.syncAddress)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return err
 	}
@@ -156,4 +165,40 @@ func (api *API) send(message Message) error {
 	}
 
 	return nil
+}
+
+func (api *API) getMessageFromValue(value string) (Message, error) {
+	message := Message{}
+
+	if len(value) == 0 {
+		return message, errors.New("no value")
+	}
+
+	matched, err := regexp.Match(`(put|patch|delete):.+`, []byte(value))
+	if err != nil {
+		return message, err
+	}
+
+	if !matched {
+		return message, errors.New("value not correct")
+	}
+
+	dataValues := strings.Split(value, ":")
+
+	filePath := path.Join(*api.config.sourceDir, dataValues[1])
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return message, fmt.Errorf("file %s not found", filePath)
+	}
+
+	fileContent, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return message, err
+	}
+
+	message.Type = dataValues[0]
+	message.FileName = dataValues[1]
+	message.SHA256 = NewSHA256(fileContent)
+	message.FileContentBase64 = base64.StdEncoding.EncodeToString(fileContent)
+
+	return message, nil
 }

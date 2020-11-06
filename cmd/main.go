@@ -11,7 +11,12 @@ func main() {
 
 	config := newConfig()
 
-	log.SetLevel(log.InfoLevel)
+	level, err := log.ParseLevel(*config.logLevel)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	log.SetLevel(level)
 
 	if log.GetLevel() == log.DebugLevel {
 		log.SetReportCaller(true)
