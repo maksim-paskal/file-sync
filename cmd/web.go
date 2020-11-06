@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -87,17 +86,17 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 		log.Debug(string(r))
 	}
 
-	message.Type = strings.ToUpper(message.Type)
 	if len(message.FileName) > 0 {
 		message.FileName = path.Join(*web.config.destinationDir, message.FileName)
 	}
 
 	if err == nil {
 		switch message.Type {
-		case "PUT":
-			err = web.api.makePUT(message)
-		case "DELETE":
-			err = web.api.makeDELETE(message)
+		case "put":
+		case "patch":
+			err = web.api.makeSave(message)
+		case "delete":
+			err = web.api.makeDelete(message)
 		default:
 			err = fmt.Errorf("unknown type %s", message.Type)
 		}

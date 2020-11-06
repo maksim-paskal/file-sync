@@ -46,6 +46,7 @@ func newConfig() *Config {
 	}
 
 	log.SetLevel(level)
+
 	if !*config.logPretty {
 		log.SetFormatter(&log.JSONFormatter{})
 	}

@@ -46,13 +46,13 @@ func newAPI(config *Config) *API {
 	return &api
 }
 
-func (api *API) makeDELETE(message Message) error {
+func (api *API) makeDelete(message Message) error {
 	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
 
 	return os.Remove(message.FileName)
 }
 
-func (api *API) makePUT(message Message) error {
+func (api *API) makeSave(message Message) error {
 	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
 	fileContent := []byte(message.FileContent)
 

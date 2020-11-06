@@ -45,14 +45,14 @@ func TestGetMessageFromValue(t *testing.T) {
 			return
 		}
 
-		err = api.makePUT(message)
+		err = api.makeSave(message)
 		if err != nil {
 			t.Error(err)
 
 			return
 		}
 
-		err = api.makeDELETE(message)
+		err = api.makeDelete(message)
 		if err != nil {
 			t.Error(err)
 
