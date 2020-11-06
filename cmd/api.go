@@ -160,7 +160,10 @@ func (api *API) send(message Message) error {
 	tlsConfig.BuildNameToCertificate()
 
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
-	client := &http.Client{Transport: transport}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   *appConfig.syncTimeout,
+	}
 
 	jsonStr, err := json.Marshal(message)
 	if err != nil {

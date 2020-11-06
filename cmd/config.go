@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"time"
 )
 
 type Config struct {
@@ -12,12 +13,17 @@ type Config struct {
 	sourceDir      *string
 	destinationDir *string
 	syncAddress    *string
+	syncTimeout    *time.Duration
 	sslClientKey   *string
 	sslClientCrt   *string
 	sslServerKey   *string
 	sslServerCrt   *string
 	sslCA          *string
 }
+
+const (
+	syncTimeoutDefault = 30 * time.Second
+)
 
 //nolint:gochecknoglobals
 var appConfig Config = Config{
@@ -28,6 +34,7 @@ var appConfig Config = Config{
 	sourceDir:      flag.String("dir.src", "data", "folder"),
 	destinationDir: flag.String("dir.dest", "data", "folder"),
 	syncAddress:    flag.String("sync.address", "localhost:9335", "destination server"),
+	syncTimeout:    flag.Duration("sync.timeout", syncTimeoutDefault, "destination server"),
 	// ssl config
 	sslClientKey: flag.String("ssl.clientKey", "ssl/client01.key", "ssl certificate"),
 	sslClientCrt: flag.String("ssl.clientCrt", "ssl/client01.crt", "ssl certificate"),
