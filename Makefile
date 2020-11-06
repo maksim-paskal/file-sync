@@ -7,7 +7,7 @@ lint:
 run:
 	rm -rf data
 	go build -o file-sync ./cmd
-	./file-sync -log.level=DEBUG -dir.src=data-src
+	./file-sync -log.level=DEBUG -log.pretty -dir.src=data-src
 clean:
 	rm -rf file-sync
 	docker-compose down --remove-orphans 

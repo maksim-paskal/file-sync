@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -86,10 +85,6 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 		log.Debug(string(r))
 	}
 
-	if len(message.FileName) > 0 {
-		message.FileName = path.Join(*web.config.destinationDir, message.FileName)
-	}
-
 	if err == nil {
 		switch message.Type {
 		case "put":
@@ -109,8 +104,6 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		results.StatusCode = 500
 		results.StatusText = err.Error()
-
-		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		results.StatusCode = 200
 		results.StatusText = "ok"
@@ -144,7 +137,8 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		err := web.api.send(message)
 		if err != nil {
-			log.Error(err)
+			js, _ := json.Marshal(message)
+			log.Error(err, string(js))
 		}
 	}()
 

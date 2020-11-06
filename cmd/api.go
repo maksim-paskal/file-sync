@@ -54,6 +54,22 @@ func (api *API) makeDelete(message Message) error {
 
 func (api *API) makeSave(message Message) error {
 	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
+
+	_, err := os.Stat(message.FileName)
+	isFileNameExists := os.IsExist(err)
+	log.Infof("file=%s,isFileNameExists=%t", message.FileName, isFileNameExists)
+
+	switch message.Type {
+	case "put":
+		if isFileNameExists {
+			return fmt.Errorf("file must not exists")
+		}
+	case "patch":
+		if !isFileNameExists {
+			return fmt.Errorf("file must exists")
+		}
+	}
+
 	fileContent := []byte(message.FileContent)
 
 	if len(message.FileContentBase64) > 0 {
@@ -67,7 +83,7 @@ func (api *API) makeSave(message Message) error {
 
 	fileDir := filepath.Dir(message.FileName)
 
-	err := os.MkdirAll(fileDir, 0777)
+	err = os.MkdirAll(fileDir, 0777)
 	if err != nil {
 		return err
 	}
