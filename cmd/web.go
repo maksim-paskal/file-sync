@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"path"
@@ -98,7 +99,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 		case "DELETE":
 			err = web.api.makeDELETE(message)
 		default:
-			err = ErrUnknownType
+			err = fmt.Errorf("unknown type %s", message.Type)
 		}
 	}
 

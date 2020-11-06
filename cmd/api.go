@@ -48,6 +48,7 @@ func newAPI(config *Config) *API {
 
 func (api *API) makeDELETE(message Message) error {
 	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
+
 	return os.Remove(message.FileName)
 }
 
@@ -66,12 +67,12 @@ func (api *API) makePUT(message Message) error {
 
 	fileDir := filepath.Dir(message.FileName)
 
-	err := os.MkdirAll(fileDir, os.FileMode(511))
+	err := os.MkdirAll(fileDir, 0777)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(message.FileName, fileContent, os.FileMode(0644))
+	err = ioutil.WriteFile(message.FileName, fileContent, 0644) //nolint:gosec
 
 	if err != nil {
 		return err
@@ -113,7 +114,7 @@ func (api *API) send(message Message) error {
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{cert},
 		RootCAs:            caCertPool,
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, //nolint:gosec
 	}
 
 	tlsConfig.BuildNameToCertificate()
