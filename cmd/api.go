@@ -72,8 +72,12 @@ func (api *API) makePUT(message Message) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(message.FileName, fileContent, 0644) //nolint:gosec
+	err = ioutil.WriteFile(message.FileName, fileContent, 0600)
+	if err != nil {
+		return err
+	}
 
+	err = os.Chmod(message.FileName, 0664)
 	if err != nil {
 		return err
 	}

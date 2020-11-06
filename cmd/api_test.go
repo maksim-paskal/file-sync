@@ -9,7 +9,7 @@ import (
 func TestGetMessageFromValue(t *testing.T) {
 	config := newConfig()
 
-	sourceDir := "../examples/tests"
+	sourceDir := "../examples"
 	destinationDir := "../data-test"
 
 	config.sourceDir = &sourceDir
@@ -19,9 +19,9 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	tests := make(map[string]Message)
 
-	tests["put:test.txt"] = Message{
+	tests["put:tests/test.txt"] = Message{
 		Type:              "put",
-		FileName:          "test.txt",
+		FileName:          "tests/test.txt",
 		FileContentBase64: "ZHNkZA==",
 		SHA256:            "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5",
 	}
