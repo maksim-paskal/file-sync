@@ -6,6 +6,11 @@ import (
 	"testing"
 )
 
+type TestAPIItem struct {
+	value   string
+	message Message
+}
+
 func TestGetMessageFromValue(t *testing.T) {
 	sourceDir := "../examples"
 	destinationDir := "../data-test"
@@ -15,33 +20,42 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	t.Logf("config.sourceDir=%s", *appConfig.sourceDir)
 
-	tests := make(map[string]Message)
+	tests := make([]TestAPIItem, 3)
 
-	tests["put:tests/test.txt"] = Message{
-		Type:              "put",
-		FileName:          "tests/test.txt",
-		FileContentBase64: "ZHNkZA==",
-		SHA256:            "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5",
+	tests[0] = TestAPIItem{
+		value: "put:tests/test.txt",
+		message: Message{
+			Type:              "put",
+			FileName:          "tests/test.txt",
+			FileContentBase64: "ZHNkZA==",
+			SHA256:            "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5",
+		},
 	}
 
-	tests["patch:tests/test.txt"] = Message{
-		Type:              "patch",
-		FileName:          "tests/test.txt",
-		FileContentBase64: "ZHNkZA==",
-		SHA256:            "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5",
+	tests[1] = TestAPIItem{
+		value: "patch:tests/test.txt",
+		message: Message{
+			Type:              "patch",
+			FileName:          "tests/test.txt",
+			FileContentBase64: "ZHNkZA==",
+			SHA256:            "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5",
+		},
 	}
 
-	tests["delete:tests/test.txt"] = Message{
-		Type:     "delete",
-		FileName: "tests/test.txt",
+	tests[2] = TestAPIItem{
+		value: "delete:tests/test.txt",
+		message: Message{
+			Type:     "delete",
+			FileName: "tests/test.txt",
+		},
 	}
 
 	api := newAPI()
 
-	for key, message := range tests {
-		t.Log(key)
+	for _, test := range tests {
+		t.Log(test.value)
 
-		result, err := api.getMessageFromValue(key)
+		result, err := api.getMessageFromValue(test.value)
 		if err != nil {
 			t.Error(err)
 
@@ -51,19 +65,19 @@ func TestGetMessageFromValue(t *testing.T) {
 		js, _ := json.Marshal(result)
 		t.Log(string(js))
 
-		if !reflect.DeepEqual(result, message) {
+		if !reflect.DeepEqual(result, test.message) {
 			t.Error("messages not correct")
 
 			return
 		}
 
-		switch message.Type {
+		switch test.message.Type {
 		case MessageTypePut:
-			err = api.makeSave(message)
+			err = api.makeSave(test.message)
 		case MessageTypePatch:
-			err = api.makeSave(message)
+			err = api.makeSave(test.message)
 		case MessageTypeDelete:
-			err = api.makeDelete(message)
+			err = api.makeDelete(test.message)
 		}
 
 		if err != nil {
