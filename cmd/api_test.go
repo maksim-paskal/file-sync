@@ -7,15 +7,13 @@ import (
 )
 
 func TestGetMessageFromValue(t *testing.T) {
-	config := newConfig()
-
 	sourceDir := "../examples"
 	destinationDir := "../data-test"
 
-	config.sourceDir = &sourceDir
-	config.destinationDir = &destinationDir
+	appConfig.sourceDir = &sourceDir
+	appConfig.destinationDir = &destinationDir
 
-	t.Logf("config.sourceDir=%s", *config.sourceDir)
+	t.Logf("config.sourceDir=%s", *appConfig.sourceDir)
 
 	tests := make(map[string]Message)
 
@@ -26,9 +24,23 @@ func TestGetMessageFromValue(t *testing.T) {
 		SHA256:            "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5",
 	}
 
-	api := newAPI(config)
+	tests["patch:tests/test.txt"] = Message{
+		Type:              "patch",
+		FileName:          "tests/test.txt",
+		FileContentBase64: "ZHNkZA==",
+		SHA256:            "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5",
+	}
+
+	tests["delete:tests/test.txt"] = Message{
+		Type:     "delete",
+		FileName: "tests/test.txt",
+	}
+
+	api := newAPI()
 
 	for key, message := range tests {
+		t.Log(key)
+
 		result, err := api.getMessageFromValue(key)
 		if err != nil {
 			t.Error(err)
@@ -45,14 +57,15 @@ func TestGetMessageFromValue(t *testing.T) {
 			return
 		}
 
-		err = api.makeSave(message)
-		if err != nil {
-			t.Error(err)
-
-			return
+		switch message.Type {
+		case MessageTypePut:
+			err = api.makeSave(message)
+		case MessageTypePatch:
+			err = api.makeSave(message)
+		case MessageTypeDelete:
+			err = api.makeDelete(message)
 		}
 
-		err = api.makeDelete(message)
 		if err != nil {
 			t.Error(err)
 

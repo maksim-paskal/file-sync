@@ -26,6 +26,7 @@ COPY examples/ssl/server.crt /app/ssl/server.crt
 COPY examples/ssl/server.key /app/ssl/server.key
 COPY examples/ssl/client01.crt /app/ssl/client01.crt
 COPY examples/ssl/client01.key /app/ssl/client01.key
+COPY examples/tests/test.txt /tmp/test.txt
 
 RUN addgroup -g 101 -S app \
 && adduser -u 101 -D -S -G app app \

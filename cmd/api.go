@@ -20,8 +20,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	MessageTypePut    = "put"
+	MessageTypePatch  = "patch"
+	MessageTypeDelete = "delete"
+)
+
 type Message struct {
-	Type              string `json:"type"` // PUT,DELETE
+	Type              string `json:"type"`
 	FileName          string `json:"fileName"`
 	FileContent       string `json:"fileContent"`
 	FileContentBase64 string `json:"fileContentBase64"`
@@ -29,45 +35,57 @@ type Message struct {
 }
 
 type Response struct {
+	Type       string `json:"type"`
 	FileName   string `json:"fileName"`
 	StatusCode int    `json:"statusCode"`
 	StatusText string `json:"statusText"`
 }
 
 type API struct {
-	config *Config
 }
 
-func newAPI(config *Config) *API {
-	api := API{
-		config: config,
-	}
+func newAPI() *API {
+	api := API{}
 
 	return &api
 }
 
 func (api *API) makeDelete(message Message) error {
-	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
+	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
 
-	return os.Remove(message.FileName)
+	err := os.Remove(message.FileName)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("file deleted %s", message.FileName)
+
+	return nil
 }
 
 func (api *API) makeSave(message Message) error {
-	message.FileName = path.Join(*api.config.destinationDir, message.FileName)
+	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
 
-	_, err := os.Stat(message.FileName)
-	isFileNameExists := os.IsExist(err)
-	log.Infof("file=%s,isFileNameExists=%t", message.FileName, isFileNameExists)
+	fileInfo, err := os.Stat(message.FileName)
+	isFileNameNotExists := os.IsNotExist(err)
+
+	if err == nil && fileInfo.IsDir() {
+		return fmt.Errorf("%s is directory", message.FileName)
+	}
+
+	log.Debugf("FileName=%s,isFileNameNotExists=%t", message.FileName, isFileNameNotExists)
 
 	switch message.Type {
-	case "put":
-		if isFileNameExists {
+	case MessageTypePut:
+		if !isFileNameNotExists {
 			return fmt.Errorf("file must not exists")
 		}
-	case "patch":
-		if !isFileNameExists {
+	case MessageTypePatch:
+		if isFileNameNotExists {
 			return fmt.Errorf("file must exists")
 		}
+	default:
+		return fmt.Errorf("unknown type %s", message.Type)
 	}
 
 	fileContent := []byte(message.FileContent)
@@ -93,6 +111,8 @@ func (api *API) makeSave(message Message) error {
 		return err
 	}
 
+	log.Debugf("file saved %s", message.FileName)
+
 	err = os.Chmod(message.FileName, 0664)
 	if err != nil {
 		return err
@@ -116,13 +136,13 @@ func (api *API) send(message Message) error {
 	ctx := context.Background()
 
 	// Load client cert
-	cert, err := tls.LoadX509KeyPair(*api.config.sslClientCrt, *api.config.sslClientKey)
+	cert, err := tls.LoadX509KeyPair(*appConfig.sslClientCrt, *appConfig.sslClientKey)
 	if err != nil {
 		return err
 	}
 
 	// Load CA cert
-	caCert, err := ioutil.ReadFile(*api.config.sslCA)
+	caCert, err := ioutil.ReadFile(*appConfig.sslCA)
 	if err != nil {
 		return err
 	}
@@ -147,7 +167,7 @@ func (api *API) send(message Message) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/api/sync", *api.config.syncAddress)
+	url := fmt.Sprintf("https://%s/api/sync", *appConfig.syncAddress)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
@@ -172,7 +192,7 @@ func (api *API) send(message Message) error {
 		return err
 	}
 
-	log.Infof("result=%s", string(data))
+	log.Infof("url=%s,result=%s", url, string(data))
 
 	results := Response{}
 
@@ -195,7 +215,7 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 		return message, errors.New("no value")
 	}
 
-	matched, err := regexp.Match(`(put|patch|delete):.+`, []byte(value))
+	matched, err := regexp.Match(`^(put|patch|delete):.+$`, []byte(value))
 	if err != nil {
 		return message, err
 	}
@@ -206,20 +226,29 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 
 	dataValues := strings.Split(value, ":")
 
-	filePath := path.Join(*api.config.sourceDir, dataValues[1])
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	filePath := path.Join(*appConfig.sourceDir, dataValues[1])
+	fileInfo, err := os.Stat(filePath)
+
+	if os.IsNotExist(err) {
 		return message, fmt.Errorf("file %s not found", filePath)
 	}
 
-	fileContent, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return message, err
+	if fileInfo.IsDir() {
+		return message, fmt.Errorf("file %s is directory", filePath)
 	}
 
 	message.Type = dataValues[0]
 	message.FileName = dataValues[1]
-	message.SHA256 = NewSHA256(fileContent)
-	message.FileContentBase64 = base64.StdEncoding.EncodeToString(fileContent)
+
+	if message.Type != MessageTypeDelete {
+		fileContent, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			return message, err
+		}
+
+		message.SHA256 = NewSHA256(fileContent)
+		message.FileContentBase64 = base64.StdEncoding.EncodeToString(fileContent)
+	}
 
 	return message, nil
 }

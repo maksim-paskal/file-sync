@@ -4,6 +4,9 @@ lint:
 	go mod tidy
 	go test ./cmd
 	golangci-lint run --allow-parallel-runners -v --enable-all --disable funlen,testpackage,goerr113 --fix
+build:
+	docker-compose pull
+	docker-compose build
 run:
 	rm -rf data
 	go build -o file-sync ./cmd

@@ -12,18 +12,16 @@ import (
 )
 
 type Web struct {
-	api    *API
-	config *Config
+	api *API
 }
 
-func newWeb(config *Config) *Web {
+func newWeb() *Web {
 	web := Web{
-		api:    newAPI(config),
-		config: config,
+		api: newAPI(),
 	}
 
 	go func() {
-		caCertPEM, err := ioutil.ReadFile(*config.sslCA)
+		caCertPEM, err := ioutil.ReadFile(*appConfig.sslCA)
 		if err != nil {
 			log.Panic("can not load ca")
 		}
@@ -39,7 +37,7 @@ func newWeb(config *Config) *Web {
 		mux.HandleFunc("/api/sync", web.handlerSync)
 
 		server := &http.Server{
-			Addr:    *config.httpsAddress,
+			Addr:    *appConfig.httpsAddress,
 			Handler: mux,
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
@@ -50,7 +48,7 @@ func newWeb(config *Config) *Web {
 
 		log.Infof("Start TLS server on %s", server.Addr)
 
-		err = server.ListenAndServeTLS(*config.sslServerCrt, *config.sslServerKey)
+		err = server.ListenAndServeTLS(*appConfig.sslServerCrt, *appConfig.sslServerKey)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -61,7 +59,7 @@ func newWeb(config *Config) *Web {
 		mux.HandleFunc("/api/queue", web.handlerQueue)
 
 		server := &http.Server{
-			Addr:    *config.httpAddress,
+			Addr:    *appConfig.httpAddress,
 			Handler: mux,
 		}
 
@@ -78,26 +76,32 @@ func newWeb(config *Config) *Web {
 
 func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	message := Message{}
+
 	err := json.NewDecoder(r.Body).Decode(&message)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
 
 	if log.GetLevel() <= log.DebugLevel {
 		r, _ := json.Marshal(message)
 		log.Debug(string(r))
 	}
 
-	if err == nil {
-		switch message.Type {
-		case "put":
-		case "patch":
-			err = web.api.makeSave(message)
-		case "delete":
-			err = web.api.makeDelete(message)
-		default:
-			err = fmt.Errorf("unknown type %s", message.Type)
-		}
+	switch message.Type {
+	case MessageTypePut:
+		err = web.api.makeSave(message)
+	case MessageTypePatch:
+		err = web.api.makeSave(message)
+	case MessageTypeDelete:
+		err = web.api.makeDelete(message)
+	default:
+		err = fmt.Errorf("unknown type %s", message.Type)
 	}
 
 	results := Response{
+		Type:     message.Type,
 		FileName: message.FileName,
 	}
 
@@ -126,6 +130,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	value := r.Form.Get("value")
+
+	if log.GetLevel() <= log.DebugLevel {
+		log.Debug(value)
+	}
 
 	message, err := web.api.getMessageFromValue(value)
 	if err != nil {

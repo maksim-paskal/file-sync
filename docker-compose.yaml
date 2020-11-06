@@ -7,6 +7,7 @@ services:
     command:
     - /app/file-sync
     - -sync.address=file-sync2:9335
+    - -dir.src=/tmp
     ports:
     - 19336:9336
   file-sync2:
@@ -15,6 +16,4 @@ services:
     command:
     - /app/file-sync
     - -sync.address=file-sync1:9335
-    ports:
-    - 29336:9336
       
