@@ -25,7 +25,7 @@ func newWeb(config *Config) *Web {
 	}
 
 	go func() {
-		caCertPEM, err := ioutil.ReadFile("ssl/ca.crt")
+		caCertPEM, err := ioutil.ReadFile(*config.sslCA)
 		if err != nil {
 			log.Panic("can not load ca")
 		}
@@ -52,7 +52,7 @@ func newWeb(config *Config) *Web {
 
 		log.Infof("Start TLS server on %s", server.Addr)
 
-		err = server.ListenAndServeTLS("ssl/server.crt", "ssl/server.key")
+		err = server.ListenAndServeTLS(*config.sslServerCrt, *config.sslServerKey)
 		if err != nil {
 			log.Panic(err)
 		}

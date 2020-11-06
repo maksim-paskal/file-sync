@@ -100,13 +100,13 @@ func (api *API) send(message Message) error {
 	ctx := context.Background()
 
 	// Load client cert
-	cert, err := tls.LoadX509KeyPair("ssl/client01.crt", "ssl/client01.key")
+	cert, err := tls.LoadX509KeyPair(*api.config.sslClientCrt, *api.config.sslClientKey)
 	if err != nil {
 		return err
 	}
 
 	// Load CA cert
-	caCert, err := ioutil.ReadFile("ssl/ca.crt")
+	caCert, err := ioutil.ReadFile(*api.config.sslCA)
 	if err != nil {
 		return err
 	}
