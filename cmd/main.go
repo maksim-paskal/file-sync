@@ -27,7 +27,7 @@ func main() {
 		log.SetReportCaller(true)
 	}
 
-	newWeb()
+	newWeb().startServer()
 
 	<-ctx.Done()
 }

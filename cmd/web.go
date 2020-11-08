@@ -20,6 +20,10 @@ func newWeb() *Web {
 		api: newAPI(),
 	}
 
+	return &web
+}
+
+func (web *Web) startServer() {
 	go func() {
 		caCertPEM, err := ioutil.ReadFile(*appConfig.sslCA)
 		if err != nil {
@@ -33,12 +37,9 @@ func newWeb() *Web {
 			log.Panic("failed to parse root certificate")
 		}
 
-		mux := http.NewServeMux()
-		mux.HandleFunc("/api/sync", web.handlerSync)
-
 		server := &http.Server{
 			Addr:    *appConfig.httpsAddress,
-			Handler: mux,
+			Handler: web.getHTTPSRouter(),
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
 				ClientAuth: tls.RequireAndVerifyClientCert,
@@ -55,12 +56,9 @@ func newWeb() *Web {
 	}()
 
 	go func() {
-		mux := http.NewServeMux()
-		mux.HandleFunc("/api/queue", web.handlerQueue)
-
 		server := &http.Server{
 			Addr:    *appConfig.httpAddress,
-			Handler: mux,
+			Handler: web.getHTTPRouter(),
 		}
 
 		log.Infof("Start server on %s", server.Addr)
@@ -70,8 +68,6 @@ func newWeb() *Web {
 			log.Panic(err)
 		}
 	}()
-
-	return &web
 }
 
 func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
@@ -158,4 +154,18 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (web *Web) getHTTPRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/queue", web.handlerQueue)
+
+	return mux
+}
+
+func (web *Web) getHTTPSRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/sync", web.handlerSync)
+
+	return mux
 }
