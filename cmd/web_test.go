@@ -9,16 +9,16 @@ import (
 	"testing"
 )
 
-func TestRouting_Sync(t *testing.T) {
+func TestRouting_Queue(t *testing.T) {
 	ctx := context.Background()
 	web := newWeb()
 
 	srv := httptest.NewServer(web.getHTTPRouter())
 	defer srv.Close()
 
-	syncURL := fmt.Sprintf("%s/api/queue?value=put:tests/test.txt", srv.URL)
+	queueURL := fmt.Sprintf("%s/api/queue?value=put:tests/test.txt", srv.URL)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, syncURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queueURL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
