@@ -162,9 +162,17 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (web *Web) handlerHealthz(w http.ResponseWriter, r *http.Request) {
+	_, err := w.Write([]byte("ok"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func (web *Web) getHTTPRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/queue", web.handlerQueue)
+	mux.HandleFunc("/api/healthz", web.handlerHealthz)
 
 	return mux
 }

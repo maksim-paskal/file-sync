@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-sync
+spec:
+  selector:
+    matchLabels:
+      app: file-sync
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: file-sync
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - file-sync
+            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - file-sync
+              topologyKey: topology.kubernetes.io/zone
+            weight: 100
+      containers:
+      - name: file-sync
+        image: paskalmaksim/file-sync:dev
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 10m  
+            memory: 50Mi
+        readinessProbe:
+          httpGet:
+            path: /api/healthz
+            port: 9336
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /api/healthz
+            port: 9336
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-sync
+  labels:
+    app: file-sync
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 9336
+    targetPort: 9336
+    protocol: TCP
+  selector:
+    app: file-sync
