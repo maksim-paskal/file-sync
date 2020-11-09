@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -126,6 +127,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	value := r.Form.Get("value")
+	debug := r.Form.Get("debug")
 
 	if log.GetLevel() <= log.DebugLevel {
 		log.Debug(value)
@@ -138,16 +140,20 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		err := web.api.send(message)
-		if err != nil {
-			log.Error(err)
-		}
-	}()
-
 	if log.GetLevel() <= log.DebugLevel {
 		r, _ := json.Marshal(message)
 		log.Debug(string(r))
+	}
+
+	if len(debug) > 0 && strings.EqualFold(debug, "true") {
+		log.Info("Debug mode")
+	} else {
+		go func() {
+			err := web.api.send(message)
+			if err != nil {
+				log.Error(err)
+			}
+		}()
 	}
 
 	_, err = w.Write([]byte("ok"))

@@ -1,4 +1,4 @@
-module main
+module github.com/maksim-paskal/file-sync
 
 go 1.15
 
