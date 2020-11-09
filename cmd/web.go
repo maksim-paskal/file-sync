@@ -133,21 +133,21 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		log.Debug(value)
 	}
 
-	message, err := web.api.getMessageFromValue(value)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
-
-	if log.GetLevel() <= log.DebugLevel {
-		r, _ := json.Marshal(message)
-		log.Debug(string(r))
-	}
-
 	if len(debug) > 0 && strings.EqualFold(debug, "true") {
 		log.Info("Debug mode")
 	} else {
+		message, err := web.api.getMessageFromValue(value)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+
+			return
+		}
+
+		if log.GetLevel() <= log.DebugLevel {
+			r, _ := json.Marshal(message)
+			log.Debug(string(r))
+		}
+
 		go func() {
 			err := web.api.send(message)
 			if err != nil {
