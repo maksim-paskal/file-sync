@@ -10,6 +10,7 @@ type Config struct {
 	logPretty      *bool
 	httpAddress    *string
 	httpsAddress   *string
+	metricsAddress *string
 	sourceDir      *string
 	destinationDir *string
 	syncAddress    *string
@@ -31,6 +32,7 @@ var appConfig Config = Config{
 	logLevel:       flag.String("log.level", "INFO", "logging level"),
 	httpAddress:    flag.String("http.address", ":9336", "address"),
 	httpsAddress:   flag.String("https.address", ":9335", "address"),
+	metricsAddress: flag.String("metrics.address", ":9334", "address"),
 	sourceDir:      flag.String("dir.src", "data", "folder"),
 	destinationDir: flag.String("dir.dest", "data", "folder"),
 	syncAddress:    flag.String("sync.address", "localhost:9335", "destination server"),

@@ -13,12 +13,14 @@ import (
 )
 
 type Web struct {
-	api *API
+	api      *API
+	exporter *Exporter
 }
 
-func newWeb() *Web {
+func newWeb(exporter *Exporter) *Web {
 	web := Web{
-		api: newAPI(),
+		api:      newAPI(),
+		exporter: exporter,
 	}
 
 	return &web
@@ -124,6 +126,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		web.exporter.queueErr.Inc()
 	}
 
 	value := r.Form.Get("value")
@@ -139,6 +142,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		message, err := web.api.getMessageFromValue(value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			web.exporter.queueErr.Inc()
 
 			return
 		}
@@ -155,6 +159,8 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	}
+
+	web.exporter.queueAdd.Inc()
 
 	_, err = w.Write([]byte("ok"))
 	if err != nil {

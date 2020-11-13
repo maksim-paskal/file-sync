@@ -27,7 +27,10 @@ func main() {
 		log.SetReportCaller(true)
 	}
 
-	newWeb().startServer()
+	exporter := newExporter()
+
+	newWeb(exporter).startServer()
+	exporter.startServer()
 
 	<-ctx.Done()
 }
