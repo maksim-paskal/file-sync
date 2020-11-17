@@ -204,5 +204,6 @@ func (web *Web) logRequestHandler(server string, h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 		logger.Infof("%s %s %s", r.RemoteAddr, r.Method, r.URL)
 	}
+
 	return http.HandlerFunc(fn)
 }
