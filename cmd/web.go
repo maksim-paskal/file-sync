@@ -41,7 +41,7 @@ func (web *Web) startServer() {
 
 		server := &http.Server{
 			Addr:    *appConfig.httpsAddress,
-			Handler: web.getHTTPSRouter(),
+			Handler: web.logRequestHandler("sync", web.getHTTPSRouter()),
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
 				ClientAuth: tls.RequireAndVerifyClientCert,
@@ -60,7 +60,7 @@ func (web *Web) startServer() {
 	go func() {
 		server := &http.Server{
 			Addr:    *appConfig.httpAddress,
-			Handler: web.getHTTPRouter(),
+			Handler: web.logRequestHandler("queue", web.getHTTPRouter()),
 		}
 
 		log.Infof("Start server on %s", server.Addr)
@@ -194,4 +194,15 @@ func (web *Web) getHTTPSRouter() *http.ServeMux {
 	mux.HandleFunc("/api/sync", web.handlerSync)
 
 	return mux
+}
+
+func (web *Web) logRequestHandler(server string, h http.Handler) http.Handler {
+	logger := log.WithFields(log.Fields{
+		"server": server,
+	})
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r)
+		logger.Infof("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+	}
+	return http.HandlerFunc(fn)
 }
