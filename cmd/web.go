@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -88,16 +87,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 		log.Debug(string(r))
 	}
 
-	switch message.Type {
-	case MessageTypePut:
-		err = web.api.makeSave(message)
-	case MessageTypePatch:
-		err = web.api.makeSave(message)
-	case MessageTypeDelete:
-		err = web.api.makeDelete(message)
-	default:
-		err = fmt.Errorf("unknown type %s", message.Type)
-	}
+	err = web.api.processMessage(message)
 
 	results := Response{
 		Type:     message.Type,
@@ -131,34 +121,50 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	value := r.Form.Get("value")
 	debug := r.Form.Get("debug")
+	force := r.Form.Get("force")
 
 	if log.GetLevel() <= log.DebugLevel {
 		log.Debug(value)
 	}
 
-	if len(debug) > 0 && strings.EqualFold(debug, "true") {
+	isDebugMode := len(debug) > 0 && strings.EqualFold(debug, "true")
+	isForced := len(force) > 0 && strings.EqualFold(force, "true")
+
+	if isDebugMode {
 		log.Info("Debug mode")
-	} else {
-		message, err := web.api.getMessageFromValue(value)
+
+		_, err = w.Write([]byte("ok"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			web.exporter.queueErr.Inc()
-
-			return
 		}
 
-		if log.GetLevel() <= log.DebugLevel {
-			r, _ := json.Marshal(message)
-			log.Debug(string(r))
-		}
-
-		go func() {
-			err := web.api.send(message)
-			if err != nil {
-				log.Error(err)
-			}
-		}()
+		return
 	}
+
+	message, err := web.api.getMessageFromValue(value)
+
+	if isForced {
+		message.Force = true
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		web.exporter.queueErr.Inc()
+
+		return
+	}
+
+	if log.GetLevel() <= log.DebugLevel {
+		r, _ := json.Marshal(message)
+		log.Debug(string(r))
+	}
+
+	go func() {
+		err := web.api.send(message)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
 
 	web.exporter.queueAdd.Inc()
 

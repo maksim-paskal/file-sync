@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -24,11 +25,15 @@ const (
 	MessageTypePut    = "put"
 	MessageTypePatch  = "patch"
 	MessageTypeDelete = "delete"
+	MessageTypeCopy   = "copy"
+	MessageTypeMove   = "move"
 )
 
 type Message struct {
 	Type              string `json:"type"`
 	FileName          string `json:"fileName"`
+	NewFileName       string `json:"newFileName"`
+	Force             bool   `json:"force"`
 	FileContent       string `json:"fileContent"`
 	FileContentBase64 string `json:"fileContentBase64"`
 	SHA256            string `json:"SHA256"`
@@ -48,6 +53,52 @@ func newAPI() *API {
 	api := API{}
 
 	return &api
+}
+
+func (api *API) makeCopy(message Message) error {
+	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
+	message.NewFileName = path.Join(*appConfig.destinationDir, message.NewFileName)
+
+	sourceFileStat, err := os.Stat(message.FileName)
+	if err != nil {
+		return err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", message.FileName)
+	}
+
+	source, err := os.Open(message.FileName)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(message.NewFileName)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+
+	return err
+}
+
+func (api *API) makeMove(message Message) error {
+	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
+	message.NewFileName = path.Join(*appConfig.destinationDir, message.NewFileName)
+
+	log.Info(message.FileName)
+	log.Info(message.NewFileName)
+
+	err := os.Rename(message.FileName, message.NewFileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Infof("%s file %s", message.Type, message.FileName)
+
+	return nil
 }
 
 func (api *API) makeDelete(message Message) error {
@@ -78,14 +129,24 @@ func (api *API) makeSave(message Message) error {
 	switch message.Type {
 	case MessageTypePut:
 		if !isFileNameNotExists {
-			return fmt.Errorf("file %s must not exists", message.FileName)
+			err := fmt.Errorf("file %s must not exists", message.FileName)
+
+			if message.Force {
+				log.Error(err)
+			} else {
+				return err
+			}
 		}
 	case MessageTypePatch:
 		if isFileNameNotExists {
-			return fmt.Errorf("file %s must exists", message.FileName)
+			err := fmt.Errorf("file %s must exists", message.FileName)
+
+			if message.Force {
+				log.Error(err)
+			} else {
+				return err
+			}
 		}
-	default:
-		return fmt.Errorf("unknown type %s", message.Type)
 	}
 
 	fileContent := []byte(message.FileContent)
@@ -218,7 +279,7 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 		return message, errors.New("no value")
 	}
 
-	matched, err := regexp.Match(`^(put|patch|delete):.+$`, []byte(value))
+	matched, err := regexp.Match(`^(put|patch|delete|copy|move):.+$`, []byte(value))
 	if err != nil {
 		return message, err
 	}
@@ -229,21 +290,28 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 
 	dataValues := strings.Split(value, ":")
 
-	filePath := path.Join(*appConfig.sourceDir, dataValues[1])
-	fileInfo, err := os.Stat(filePath)
-
-	if os.IsNotExist(err) {
-		return message, fmt.Errorf("file %s not found", filePath)
-	}
-
-	if fileInfo.IsDir() {
-		return message, fmt.Errorf("file %s is directory", filePath)
-	}
-
 	message.Type = dataValues[0]
 	message.FileName = dataValues[1]
+	dataValuesLen := len(dataValues)
 
-	if message.Type != MessageTypeDelete {
+	if dataValuesLen > 2 { //nolint:gomnd
+		message.NewFileName = dataValues[2]
+	}
+
+	isSrcOperations := message.Type == MessageTypePut || message.Type == MessageTypePatch
+
+	if isSrcOperations {
+		filePath := path.Join(*appConfig.sourceDir, dataValues[1])
+		fileInfo, err := os.Stat(filePath)
+
+		if os.IsNotExist(err) {
+			return message, fmt.Errorf("file %s not found", filePath)
+		}
+
+		if fileInfo.IsDir() {
+			return message, fmt.Errorf("file %s is directory", filePath)
+		}
+
 		fileContent, err := ioutil.ReadFile(filePath)
 		if err != nil {
 			return message, err
@@ -254,4 +322,21 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 	}
 
 	return message, nil
+}
+
+func (api *API) processMessage(message Message) error {
+	switch message.Type {
+	case MessageTypePut:
+		return api.makeSave(message)
+	case MessageTypePatch:
+		return api.makeSave(message)
+	case MessageTypeDelete:
+		return api.makeDelete(message)
+	case MessageTypeCopy:
+		return api.makeCopy(message)
+	case MessageTypeMove:
+		return api.makeMove(message)
+	default:
+		return fmt.Errorf("unknown type %s", message.Type)
+	}
 }

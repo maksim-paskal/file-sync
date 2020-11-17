@@ -20,7 +20,7 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	t.Logf("config.sourceDir=%s", *appConfig.sourceDir)
 
-	tests := make([]TestAPIItem, 3)
+	tests := make([]TestAPIItem, 6)
 
 	tests[0] = TestAPIItem{
 		value: "put:tests/test.txt",
@@ -43,6 +43,38 @@ func TestGetMessageFromValue(t *testing.T) {
 	}
 
 	tests[2] = TestAPIItem{
+		value: "copy:tests/test.txt:tests/test2.txt",
+		message: Message{
+			Type:              "copy",
+			FileName:          "tests/test.txt",
+			NewFileName:       "tests/test2.txt",
+			Force:             false,
+			FileContentBase64: "",
+			SHA256:            "",
+		},
+	}
+
+	tests[3] = TestAPIItem{
+		value: "move:tests/test2.txt:tests/test3.txt",
+		message: Message{
+			Type:              "move",
+			FileName:          "tests/test2.txt",
+			NewFileName:       "tests/test3.txt",
+			Force:             false,
+			FileContentBase64: "",
+			SHA256:            "",
+		},
+	}
+
+	tests[4] = TestAPIItem{
+		value: "delete:tests/test3.txt",
+		message: Message{
+			Type:     "delete",
+			FileName: "tests/test3.txt",
+		},
+	}
+
+	tests[5] = TestAPIItem{
 		value: "delete:tests/test.txt",
 		message: Message{
 			Type:     "delete",
@@ -71,14 +103,7 @@ func TestGetMessageFromValue(t *testing.T) {
 			return
 		}
 
-		switch test.message.Type {
-		case MessageTypePut:
-			err = api.makeSave(test.message)
-		case MessageTypePatch:
-			err = api.makeSave(test.message)
-		case MessageTypeDelete:
-			err = api.makeDelete(test.message)
-		}
+		err = api.processMessage(test.message)
 
 		if err != nil {
 			t.Error(err)
