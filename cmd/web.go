@@ -202,7 +202,13 @@ func (web *Web) logRequestHandler(server string, h http.Handler) http.Handler {
 	})
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		h.ServeHTTP(w, r)
-		logger.Infof("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+
+		if r.URL.Path == "/api/healthz" {
+			logger.Debugf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+		} else {
+			logger.Infof("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+		}
+
 	}
 
 	return http.HandlerFunc(fn)
