@@ -93,7 +93,7 @@ func (api *API) makeMove(message Message) error {
 
 	err := os.Rename(message.FileName, message.NewFileName)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	log.Infof("%s file %s", message.Type, message.FileName)
