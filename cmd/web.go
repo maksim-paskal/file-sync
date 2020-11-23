@@ -116,7 +116,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		web.exporter.queueErr.Inc()
+		web.exporter.queueErrorCounter.WithLabelValues("init").Inc()
 	}
 
 	value := r.Form.Get("value")
@@ -149,7 +149,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		web.exporter.queueErr.Inc()
+		web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 		return
 	}
@@ -163,10 +163,11 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		err := web.api.send(message)
 		if err != nil {
 			log.Error(err)
+			web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 		}
 	}()
 
-	web.exporter.queueAdd.Inc()
+	web.exporter.queueRequestCounter.WithLabelValues(message.Type).Inc()
 
 	_, err = w.Write([]byte("ok"))
 	if err != nil {

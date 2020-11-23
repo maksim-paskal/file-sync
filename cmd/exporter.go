@@ -10,10 +10,10 @@ import (
 )
 
 type Exporter struct {
-	moduleName string
-	up         prometheus.Gauge
-	queueAdd   prometheus.Gauge
-	queueErr   prometheus.Gauge
+	moduleName          string
+	up                  prometheus.Gauge
+	queueRequestCounter *prometheus.CounterVec
+	queueErrorCounter   *prometheus.CounterVec
 }
 
 func newExporter() *Exporter {
@@ -28,32 +28,36 @@ func newExporter() *Exporter {
 				Help:      "The current health status of the server (1 = UP, 0 = DOWN).",
 			},
 		),
-		queueAdd: prometheus.NewGauge(
-			prometheus.GaugeOpts{
+		queueRequestCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
 				Namespace: moduleName,
-				Name:      "queue_add",
-				Help:      "Numbers of queue added",
+				Name:      "queue_requests",
+				Help:      "Number of queue request",
 			},
+			[]string{"type"}, // labels
 		),
-		queueErr: prometheus.NewGauge(
-			prometheus.GaugeOpts{
+		queueErrorCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
 				Namespace: moduleName,
-				Name:      "queue_err",
-				Help:      "Numbers of queue errors",
+				Name:      "queue_error",
+				Help:      "Number of queue errors",
 			},
+			[]string{"type"}, // labels
 		),
 	}
 }
 
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	e.up.Describe(ch)
-	e.queueAdd.Describe(ch)
+	e.queueRequestCounter.Describe(ch)
+	e.queueErrorCounter.Describe(ch)
 }
 
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(e.up.Desc(), prometheus.GaugeValue, 1)
 
-	e.queueAdd.Collect(ch)
+	e.queueRequestCounter.Collect(ch)
+	e.queueErrorCounter.Collect(ch)
 }
 
 func (e *Exporter) startServer() {
