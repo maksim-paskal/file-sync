@@ -179,7 +179,7 @@ func (api *API) makeSave(message Message) error {
 		return err
 	}
 
-	err = os.Chmod(message.FileName, 0664)
+	err = os.Chmod(message.FileName, 0644)
 	if err != nil {
 		return err
 	}
