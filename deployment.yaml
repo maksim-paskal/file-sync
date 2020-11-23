@@ -32,14 +32,27 @@ spec:
                   - file-sync
               topologyKey: topology.kubernetes.io/zone
             weight: 100
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      volumes:
+      - name: data
+        emptyDir: {}
+        # persistentVolumeClaim:
+        #   claimName: data
       containers:
       - name: file-sync
         image: paskalmaksim/file-sync:dev
+        command:
+        - /app/file-sync
+        - -log.level=INFO
+        #- -sync.address=<some-address>:9335
         imagePullPolicy: Always
         resources:
           requests:
-            cpu: 10m  
-            memory: 50Mi
+            cpu: 100m  
+            memory: 100Mi
         readinessProbe:
           httpGet:
             path: /api/healthz
@@ -52,6 +65,9 @@ spec:
             port: 9336
           initialDelaySeconds: 10
           periodSeconds: 10
+        volumeMounts:
+        - mountPath: /app/data
+          name: data
 ---
 apiVersion: v1
 kind: Service
@@ -60,10 +76,27 @@ metadata:
   labels:
     app: file-sync
 spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 9336
+    targetPort: 9336
+    protocol: TCP
+  selector:
+    app: file-sync
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-sync-external
+  labels:
+    app: file-sync
+spec:
   type: LoadBalancer
   ports:
-  - port: 9336
-    targetPort: 9336
+  - name: https
+    port: 9335
+    targetPort: 9335
     protocol: TCP
   selector:
     app: file-sync
