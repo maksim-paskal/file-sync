@@ -200,6 +200,7 @@ func (web *Web) logRequestHandler(server string, h http.Handler) http.Handler {
 	logger := log.WithFields(log.Fields{
 		"server": server,
 	})
+
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		h.ServeHTTP(w, r)
 
@@ -208,7 +209,6 @@ func (web *Web) logRequestHandler(server string, h http.Handler) http.Handler {
 		} else {
 			logger.Infof("%s %s %s", r.RemoteAddr, r.Method, r.URL)
 		}
-
 	}
 
 	return http.HandlerFunc(fn)

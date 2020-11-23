@@ -91,7 +91,14 @@ func (api *API) makeMove(message Message) error {
 	log.Info(message.FileName)
 	log.Info(message.NewFileName)
 
-	err := os.Rename(message.FileName, message.NewFileName)
+	fileDir := filepath.Dir(message.NewFileName)
+
+	err := os.MkdirAll(fileDir, 0777)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(message.FileName, message.NewFileName)
 	if err != nil {
 		return err
 	}

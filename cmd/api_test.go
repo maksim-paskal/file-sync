@@ -55,11 +55,11 @@ func TestGetMessageFromValue(t *testing.T) {
 	}
 
 	tests[3] = TestAPIItem{
-		value: "move:tests/test2.txt:tests/test3.txt",
+		value: "move:tests/test2.txt:tests/test/test/test/test3.txt",
 		message: Message{
 			Type:              "move",
 			FileName:          "tests/test2.txt",
-			NewFileName:       "tests/test3.txt",
+			NewFileName:       "tests/test/test/test/test3.txt",
 			Force:             false,
 			FileContentBase64: "",
 			SHA256:            "",
@@ -67,10 +67,10 @@ func TestGetMessageFromValue(t *testing.T) {
 	}
 
 	tests[4] = TestAPIItem{
-		value: "delete:tests/test3.txt",
+		value: "delete:tests/test/test/test/test3.txt",
 		message: Message{
 			Type:     "delete",
-			FileName: "tests/test3.txt",
+			FileName: "tests/test/test/test/test3.txt",
 		},
 	}
 
