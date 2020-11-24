@@ -11,6 +11,9 @@ spec:
     metadata:
       labels:
         app: file-sync
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9334"
     spec:
       affinity:
         podAntiAffinity:
@@ -51,7 +54,7 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            cpu: 100m  
+            cpu: 100m
             memory: 100Mi
         readinessProbe:
           httpGet:
@@ -93,6 +96,7 @@ metadata:
     app: file-sync
 spec:
   type: LoadBalancer
+  externalTrafficPolicy: Local
   ports:
   - name: https
     port: 9335

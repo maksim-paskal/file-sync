@@ -48,3 +48,5 @@ testSSL:
 
 	curl -k --key ssl/client01.key --cert ssl/client01.crt https://localhost:9335/api/sync
 	curl -k https://localhost:9335/api/sync
+buildBinnary:
+	scripts/build-all.sh
