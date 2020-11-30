@@ -13,7 +13,7 @@ build:
 run:
 	rm -rf data
 	GOFLAGS="-trimpath" go build -o file-sync ./cmd
-	./file-sync -log.level=DEBUG -log.pretty -dir.src=data-src
+	./file-sync -log.level=DEBUG -log.pretty -redis.enabled -dir.src=data-src
 clean:
 	rm -rf file-sync
 	docker-compose down --remove-orphans 

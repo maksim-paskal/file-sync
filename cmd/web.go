@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -14,12 +15,14 @@ import (
 type Web struct {
 	api      *API
 	exporter *Exporter
+	queue    *Queue
 }
 
-func newWeb(exporter *Exporter) *Web {
+func newWeb(exporter *Exporter, queue *Queue, api *API) *Web {
 	web := Web{
-		api:      newAPI(),
+		api:      api,
 		exporter: exporter,
+		queue:    queue,
 	}
 
 	return &web
@@ -90,6 +93,10 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 
 	err = web.api.processMessage(message)
 
+	if err != nil {
+		log.Error(err)
+	}
+
 	results := Response{
 		Type:     message.Type,
 		FileName: message.FileName,
@@ -109,7 +116,6 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(js)
 	if err != nil {
-		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -164,17 +170,33 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		log.Debug(string(r))
 	}
 
-	go func() {
-		err := web.api.send(message)
+	resultText := "ok"
+
+	if *appConfig.redisEnabled {
+		id, err := web.queue.add(message)
 		if err != nil {
 			log.Error(err)
 			web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+
+			return
 		}
-	}()
+
+		resultText = fmt.Sprintf("total queue size = %d", id)
+	} else {
+		go func() {
+			err := web.api.send(message)
+			if err != nil {
+				log.Error(err)
+				web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+
+				return
+			}
+		}()
+	}
 
 	web.exporter.queueRequestCounter.WithLabelValues(message.Type).Inc()
 
-	_, err = w.Write([]byte("ok"))
+	_, err = w.Write([]byte(resultText))
 	if err != nil {
 		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

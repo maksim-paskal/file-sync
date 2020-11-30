@@ -7,6 +7,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//nolint:gochecknoglobals
+var (
+	gitVersion string = "dev"
+	buildTime  string
+)
+
 func main() {
 	ctx := context.Background()
 
@@ -27,9 +33,24 @@ func main() {
 		log.SetReportCaller(true)
 	}
 
-	exporter := newExporter()
+	log.Infof("Starting %s...", appConfig.Version)
 
-	newWeb(exporter).startServer()
+	api := newAPI()
+	exporter := newExporter()
+	queue := newQueue("file-sync")
+
+	// for redis
+	queue.onNewValue = func(message Message) {
+		err := api.send(message)
+		if err != nil {
+			log.Error(err)
+			exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+
+			return
+		}
+	}
+
+	newWeb(exporter, queue, api).startServer()
 	exporter.startServer()
 
 	<-ctx.Done()

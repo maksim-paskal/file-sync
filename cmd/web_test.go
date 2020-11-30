@@ -13,8 +13,10 @@ import (
 
 func TestRouting_Queue(t *testing.T) {
 	ctx := context.Background()
+	api := newAPI()
 	exporter := newExporter()
-	web := newWeb(exporter)
+	queue := newQueue("file-sync")
+	web := newWeb(exporter, queue, api)
 
 	srv := httptest.NewServer(web.getHTTPRouter())
 	defer srv.Close()
@@ -49,8 +51,10 @@ func TestRouting_Queue(t *testing.T) {
 
 func TestRouting_Sync(t *testing.T) {
 	ctx := context.Background()
+	api := newAPI()
 	exporter := newExporter()
-	web := newWeb(exporter)
+	queue := newQueue("file-sync")
+	web := newWeb(exporter, queue, api)
 
 	srv := httptest.NewServer(web.getHTTPSRouter())
 	defer srv.Close()

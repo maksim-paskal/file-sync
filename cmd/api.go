@@ -111,6 +111,16 @@ func (api *API) makeMove(message Message) error {
 func (api *API) makeDelete(message Message) error {
 	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
 
+	if _, err := os.Stat(message.FileName); os.IsNotExist(err) {
+		errorText := fmt.Sprintf("file %s not found", message.FileName)
+
+		if message.Force {
+			log.Warn(errorText)
+		} else {
+			return errors.New(errorText)
+		}
+	}
+
 	err := os.Remove(message.FileName)
 	if err != nil {
 		return err
