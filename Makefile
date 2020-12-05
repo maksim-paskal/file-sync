@@ -1,4 +1,5 @@
 lint:
+	./scripts/validate-license.sh
 	rm -rf data-test
 	go fmt ./cmd
 	go mod tidy
