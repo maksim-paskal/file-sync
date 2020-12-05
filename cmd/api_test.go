@@ -24,6 +24,8 @@ type TestAPIItem struct {
 }
 
 func TestGetMessageFromValue(t *testing.T) {
+	t.Parallel()
+
 	sourceDir := "../examples"
 	destinationDir := "../data-test"
 

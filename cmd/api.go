@@ -19,7 +19,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,6 +29,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -73,7 +73,7 @@ func (api *API) makeCopy(message Message) error {
 
 	sourceFileStat, err := os.Stat(message.FileName)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.Stat")
 	}
 
 	if !sourceFileStat.Mode().IsRegular() {
@@ -82,18 +82,18 @@ func (api *API) makeCopy(message Message) error {
 
 	source, err := os.Open(message.FileName)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.Open")
 	}
 	defer source.Close()
 
 	destination, err := os.Create(message.NewFileName)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.Create")
 	}
 	defer destination.Close()
 	_, err = io.Copy(destination, source)
 
-	return err
+	return errors.Wrap(err, "error in io.Copy")
 }
 
 func (api *API) makeMove(message Message) error {
@@ -107,12 +107,12 @@ func (api *API) makeMove(message Message) error {
 
 	err := os.MkdirAll(fileDir, 0777)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.MkdirAll")
 	}
 
 	err = os.Rename(message.FileName, message.NewFileName)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.Rename")
 	}
 
 	log.Infof("%s file %s", message.Type, message.FileName)
@@ -135,7 +135,7 @@ func (api *API) makeDelete(message Message) error {
 
 	err := os.Remove(message.FileName)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.Remove")
 	}
 
 	log.Infof("%s file %s", message.Type, message.FileName)
@@ -183,7 +183,7 @@ func (api *API) makeSave(message Message) error {
 	if len(message.FileContentBase64) > 0 {
 		decoded, err := base64.StdEncoding.DecodeString(message.FileContentBase64)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error in base64.StdEncoding.DecodeString")
 		}
 
 		fileContent = decoded
@@ -193,23 +193,23 @@ func (api *API) makeSave(message Message) error {
 
 	err = os.MkdirAll(fileDir, 0777)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.MkdirAll")
 	}
 
 	err = ioutil.WriteFile(message.FileName, fileContent, 0600)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in ioutil.WriteFile")
 	}
 
 	err = os.Chmod(message.FileName, 0644)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in os.Chmod")
 	}
 
 	if len(message.SHA256) != 0 {
 		data, err := ioutil.ReadFile(message.FileName)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error in ioutil.ReadFile")
 		}
 
 		if message.SHA256 != NewSHA256(data) {
@@ -228,13 +228,13 @@ func (api *API) send(message Message) error {
 	// Load client cert
 	cert, err := tls.LoadX509KeyPair(*appConfig.sslClientCrt, *appConfig.sslClientKey)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in tls.LoadX509KeyPair")
 	}
 
 	// Load CA cert
 	caCert, err := ioutil.ReadFile(*appConfig.sslCA)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in ioutil.ReadFile")
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -257,21 +257,21 @@ func (api *API) send(message Message) error {
 
 	jsonStr, err := json.Marshal(message)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in json.Marshal")
 	}
 
 	url := fmt.Sprintf("https://%s/api/sync", *appConfig.syncAddress)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in http.NewRequestWithContext")
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in client.Do")
 	}
 	defer resp.Body.Close()
 
@@ -282,7 +282,7 @@ func (api *API) send(message Message) error {
 	// Dump response
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in ioutil.ReadAll")
 	}
 
 	log.Debugf("url=%s,result=%s", url, string(data))
@@ -291,7 +291,7 @@ func (api *API) send(message Message) error {
 
 	err = json.Unmarshal(data, &results)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error in json.Unmarshal")
 	}
 
 	if results.StatusCode != http.StatusOK {
@@ -310,7 +310,7 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 
 	matched, err := regexp.Match(`^(put|patch|delete|copy|move):.+$`, []byte(value))
 	if err != nil {
-		return message, err
+		return message, errors.Wrap(err, "error in regexp.Match")
 	}
 
 	if !matched {
@@ -343,7 +343,7 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 
 		fileContent, err := ioutil.ReadFile(filePath)
 		if err != nil {
-			return message, err
+			return message, errors.Wrap(err, "error in ioutil.ReadFile")
 		}
 
 		message.SHA256 = NewSHA256(fileContent)

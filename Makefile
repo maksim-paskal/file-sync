@@ -4,7 +4,7 @@ lint:
 	go fmt ./cmd
 	go mod tidy
 	go test ./cmd
-	golangci-lint run --allow-parallel-runners -v --enable-all --disable funlen,testpackage,goerr113 --fix
+	golangci-lint run --allow-parallel-runners -v --enable-all --disable funlen,testpackage,goerr113,exhaustivestruct --fix
 buildDev:
 	docker build . -t paskalmaksim/file-sync:dev
 	docker push paskalmaksim/file-sync:dev

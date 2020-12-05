@@ -24,6 +24,8 @@ import (
 )
 
 func TestRouting_Queue(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	api := newAPI()
 	exporter := newExporter()
@@ -62,6 +64,8 @@ func TestRouting_Queue(t *testing.T) {
 }
 
 func TestRouting_Sync(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	api := newAPI()
 	exporter := newExporter()

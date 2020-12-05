@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -89,7 +90,7 @@ func (q *Queue) add(value Message) (int64, error) {
 
 	messageJSON, err := json.Marshal(value)
 	if err != nil {
-		return -1, err
+		return -1, errors.Wrap(err, "error in json.Marshal")
 	}
 
 	push := q.rdb.RPush(ctx, q.key, messageJSON)
