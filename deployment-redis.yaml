@@ -22,7 +22,7 @@ spec:
           requests:
             cpu: 100m
             memory: 100Mi
-        image: docker-hub-proxy.alldigitalads.com/library/redis:5.0.7
+        image: redis:5.0.7
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 6379
