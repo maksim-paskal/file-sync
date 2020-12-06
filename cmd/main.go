@@ -15,6 +15,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -29,6 +31,11 @@ func main() {
 	ctx := context.Background()
 
 	flag.Parse()
+
+	if *appConfig.showVersion {
+		fmt.Println(appConfig.Version)
+		os.Exit(0)
+	}
 
 	level, err := log.ParseLevel(*appConfig.logLevel)
 	if err != nil {

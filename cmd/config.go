@@ -20,6 +20,7 @@ import (
 
 type Config struct {
 	Version           string
+	showVersion       *bool
 	logLevel          *string
 	logPretty         *bool
 	httpAddress       *string
@@ -46,6 +47,7 @@ const (
 //nolint:gochecknoglobals
 var appConfig Config = Config{
 	Version:        fmt.Sprintf("%s-%s", gitVersion, buildTime),
+	showVersion:    flag.Bool("version", false, "get version"),
 	logPretty:      flag.Bool("log.pretty", false, "logging level"),
 	logLevel:       flag.String("log.level", "INFO", "logging level"),
 	httpAddress:    flag.String("http.address", ":9336", "address"),
