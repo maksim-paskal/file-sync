@@ -17,6 +17,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -45,7 +46,9 @@ func main() {
 	log.SetLevel(level)
 
 	if !*appConfig.logPretty {
-		log.SetFormatter(&log.JSONFormatter{})
+		log.SetFormatter(&log.JSONFormatter{
+			TimestampFormat: time.RFC3339Nano,
+		})
 	}
 
 	if log.GetLevel() == log.DebugLevel {
