@@ -161,7 +161,7 @@ func (api *API) makeSave(message Message) error {
 			err := fmt.Errorf("file %s must not exists", message.FileName)
 
 			if message.Force {
-				log.Error(err)
+				log.WithError(err).Error()
 			} else {
 				return err
 			}
@@ -171,7 +171,7 @@ func (api *API) makeSave(message Message) error {
 			err := fmt.Errorf("file %s must exists", message.FileName)
 
 			if message.Force {
-				log.Error(err)
+				log.WithError(err).Error()
 			} else {
 				return err
 			}

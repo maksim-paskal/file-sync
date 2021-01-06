@@ -89,7 +89,7 @@ func (e *Exporter) startServer() {
 
 		err := server.ListenAndServe()
 		if err != nil {
-			log.Panic(err)
+			log.WithError(err).Fatal()
 		}
 	}()
 }
