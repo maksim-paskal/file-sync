@@ -38,6 +38,7 @@ type Config struct {
 	redisEnabled      *bool
 	redisAddress      *string
 	executeRedisQueue *bool
+	sentryDSN         *string
 }
 
 const (
@@ -57,6 +58,7 @@ var appConfig Config = Config{
 	destinationDir: flag.String("dir.dest", "data", "folder"),
 	syncAddress:    flag.String("sync.address", "localhost:9335", "destination server"),
 	syncTimeout:    flag.Duration("sync.timeout", syncTimeoutDefault, "destination server"),
+	sentryDSN:      flag.String("sentry.dsn", "", "Sentry DSN"),
 	// ssl config
 	sslClientKey:      flag.String("ssl.clientKey", "ssl/client01.key", "ssl certificate"),
 	sslClientCrt:      flag.String("ssl.clientCrt", "ssl/client01.crt", "ssl certificate"),

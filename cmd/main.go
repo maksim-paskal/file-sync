@@ -19,6 +19,7 @@ import (
 	"os"
 	"time"
 
+	logrushooksentry "github.com/maksim-paskal/logrus-hook-sentry"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -54,6 +55,18 @@ func main() {
 	if log.GetLevel() == log.DebugLevel {
 		log.SetReportCaller(true)
 	}
+
+	hook, err := logrushooksentry.NewHook(logrushooksentry.Options{
+		SentryDSN: *appConfig.sentryDSN,
+		Release:   appConfig.Version,
+	})
+	if err != nil {
+		log.WithError(err).Fatal()
+	}
+
+	log.AddHook(hook)
+
+	defer hook.Stop()
 
 	log.Infof("Starting %s...", appConfig.Version)
 
