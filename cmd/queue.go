@@ -47,7 +47,7 @@ func newQueue(key string) *Queue {
 
 	err := queue.rdb.FlushDB(ctx).Err()
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal()
 	}
 
 	log.Infof("Redis queue started on %s server", *appConfig.redisAddress)
@@ -57,14 +57,14 @@ func newQueue(key string) *Queue {
 			for {
 				result, err := queue.rdb.BLPop(ctx, 0*time.Second, queue.key).Result()
 				if err != nil {
-					log.Error(err)
+					log.WithError(err).Error()
 				}
 
 				message := Message{}
 
 				err = json.Unmarshal([]byte(result[1]), &message)
 				if err != nil {
-					log.Error(err)
+					log.WithError(err).Error()
 				}
 
 				// run command in same order

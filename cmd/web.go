@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"strings"
 
+	logrushooksentry "github.com/maksim-paskal/logrus-hook-sentry"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -44,14 +45,14 @@ func (web *Web) startServer() {
 	go func() {
 		caCertPEM, err := ioutil.ReadFile(*appConfig.sslCA)
 		if err != nil {
-			log.Panic("can not load ca")
+			log.WithError(err).Fatal("can not load ca")
 		}
 
 		roots := x509.NewCertPool()
 		ok := roots.AppendCertsFromPEM(caCertPEM)
 
 		if !ok {
-			log.Panic("failed to parse root certificate")
+			log.Fatal("failed to parse root certificate")
 		}
 
 		server := &http.Server{
@@ -68,7 +69,7 @@ func (web *Web) startServer() {
 
 		err = server.ListenAndServeTLS(*appConfig.sslServerCrt, *appConfig.sslServerKey)
 		if err != nil {
-			log.Panic(err)
+			log.WithError(err).Fatal()
 		}
 	}()
 
@@ -82,7 +83,7 @@ func (web *Web) startServer() {
 
 		err := server.ListenAndServe()
 		if err != nil {
-			log.Panic(err)
+			log.WithError(err).Fatal()
 		}
 	}()
 }
@@ -92,7 +93,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&message)
 	if err != nil {
-		log.Error(err)
+		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
 		return
@@ -100,13 +101,13 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 
 	if log.GetLevel() <= log.DebugLevel {
 		r, _ := json.Marshal(message)
-		log.Debug(string(r))
+		log.WithField(logrushooksentry.RequestKey, r).Debug(string(r))
 	}
 
 	err = web.api.processMessage(message)
 
 	if err != nil {
-		log.Error(err)
+		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 	}
 
 	results := Response{
@@ -135,7 +136,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Error(err)
+		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues("init").Inc()
 	}
@@ -145,18 +146,18 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	force := r.Form.Get("force")
 
 	if log.GetLevel() <= log.DebugLevel {
-		log.Debug(value)
+		log.WithField(logrushooksentry.RequestKey, r).Debug(value)
 	}
 
 	isDebugMode := len(debug) > 0 && strings.EqualFold(debug, "true")
 	isForced := len(force) > 0 && strings.EqualFold(force, "true")
 
 	if isDebugMode {
-		log.Info("Debug mode")
+		log.WithField(logrushooksentry.RequestKey, r).Info("Debug mode")
 
 		_, err = w.Write([]byte("ok"))
 		if err != nil {
-			log.Error(err)
+			log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
@@ -170,7 +171,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.Error(err)
+		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
@@ -179,7 +180,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	if log.GetLevel() <= log.DebugLevel {
 		r, _ := json.Marshal(message)
-		log.Debug(string(r))
+		log.WithField(logrushooksentry.RequestKey, r).Debug(string(r))
 	}
 
 	resultText := "ok"
@@ -187,7 +188,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	if *appConfig.redisEnabled {
 		id, err := web.queue.add(message)
 		if err != nil {
-			log.Error(err)
+			log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 			web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 			return
@@ -198,7 +199,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			err := web.api.send(message)
 			if err != nil {
-				log.Error(err)
+				log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 				web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 				return
@@ -210,7 +211,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write([]byte(resultText))
 	if err != nil {
-		log.Error(err)
+		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -218,7 +219,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 func (web *Web) handlerHealthz(w http.ResponseWriter, r *http.Request) {
 	_, err := w.Write([]byte("ok"))
 	if err != nil {
-		log.Error(err)
+		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

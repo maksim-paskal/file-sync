@@ -41,7 +41,7 @@ func main() {
 
 	level, err := log.ParseLevel(*appConfig.logLevel)
 	if err != nil {
-		log.Panic(err)
+		log.WithError(err).Fatal()
 	}
 
 	log.SetLevel(level)
@@ -78,7 +78,7 @@ func main() {
 	queue.onNewValue = func(message Message) {
 		err := api.send(message)
 		if err != nil {
-			log.Error(err)
+			log.WithError(err).Error()
 			exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 			return
