@@ -51,3 +51,6 @@ testSSL:
 	curl -k https://localhost:9335/api/sync
 buildBinnary:
 	scripts/build-all.sh
+upgrade:
+	go get -v -u all
+	go mod tidy
