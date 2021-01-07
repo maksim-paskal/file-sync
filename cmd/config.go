@@ -14,7 +14,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"time"
 )
 
@@ -47,7 +46,7 @@ const (
 
 //nolint:gochecknoglobals
 var appConfig Config = Config{
-	Version:        fmt.Sprintf("%s-%s", gitVersion, buildTime),
+	Version:        gitVersion,
 	showVersion:    flag.Bool("version", false, "get version"),
 	logPretty:      flag.Bool("log.pretty", false, "logging level"),
 	logLevel:       flag.String("log.level", "INFO", "logging level"),

@@ -26,7 +26,6 @@ import (
 //nolint:gochecknoglobals
 var (
 	gitVersion string = "dev"
-	buildTime  string
 )
 
 func main() {
@@ -35,6 +34,7 @@ func main() {
 	flag.Parse()
 
 	if *appConfig.showVersion {
+		//nolint:forbidigo
 		fmt.Println(appConfig.Version)
 		os.Exit(0)
 	}

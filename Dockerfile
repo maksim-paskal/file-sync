@@ -13,7 +13,7 @@ RUN cd /usr/src/app \
   && go mod download \
   && go mod verify \
   && go build -v -o file-sync -ldflags \
-  "-X main.buildTime=$(date +"%Y%m%d%H%M%S") -X main.gitVersion=$(git describe --tags `git rev-list --tags --max-count=1`)-$(git log -n1 --pretty='%H')" \
+  "-X main.gitVersion=$(git describe --tags `git rev-list --tags --max-count=1`)-$(date +%Y%m%d%H%M%S)-$(git log -n1 --pretty='%h')" \
   ./cmd \
   && /usr/src/app/file-sync -version
 
