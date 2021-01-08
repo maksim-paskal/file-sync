@@ -15,7 +15,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"time"
 
@@ -34,8 +33,7 @@ func main() {
 	flag.Parse()
 
 	if *appConfig.showVersion {
-		//nolint:forbidigo
-		fmt.Println(appConfig.Version)
+		os.Stdout.WriteString(appConfig.Version)
 		os.Exit(0)
 	}
 
