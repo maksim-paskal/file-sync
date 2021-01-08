@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/go-redis/redis/v8 v8.4.4
-	github.com/maksim-paskal/logrus-hook-sentry v0.0.5
+	github.com/maksim-paskal/logrus-hook-sentry v0.0.6
 	github.com/nxadm/tail v1.4.6 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
@@ -15,4 +15,5 @@ require (
 	golang.org/x/text v0.3.4 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
