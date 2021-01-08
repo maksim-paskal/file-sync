@@ -93,7 +93,12 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&message)
 	if err != nil {
-		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+		log.
+			WithField(logrushooksentry.RequestKey, r).
+			WithField("message", message).
+			WithError(err).
+			Error()
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
 		return
@@ -107,7 +112,11 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	err = web.api.processMessage(message)
 
 	if err != nil {
-		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+		log.
+			WithField(logrushooksentry.RequestKey, r).
+			WithField("message", message).
+			WithError(err).
+			Error()
 	}
 
 	results := Response{
@@ -136,7 +145,10 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+		log.
+			WithField(logrushooksentry.RequestKey, r).
+			WithError(err).
+			Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues("init").Inc()
 	}
@@ -171,7 +183,11 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+		log.
+			WithField(logrushooksentry.RequestKey, r).
+			WithField("message", message).
+			WithError(err).
+			Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
@@ -180,7 +196,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	if log.GetLevel() <= log.DebugLevel {
 		r, _ := json.Marshal(message)
-		log.WithField(logrushooksentry.RequestKey, r).Debug(string(r))
+		log.
+			WithField(logrushooksentry.RequestKey, r).
+			WithField("message", message).
+			Debug(string(r))
 	}
 
 	resultText := "ok"
@@ -188,7 +207,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	if *appConfig.redisEnabled {
 		id, err := web.queue.add(message)
 		if err != nil {
-			log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+			log.WithField(logrushooksentry.RequestKey, r).
+				WithField("message", message).
+				WithError(err).
+				Error()
 			web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 			return
@@ -199,7 +221,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			err := web.api.send(message)
 			if err != nil {
-				log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+				log.WithField(logrushooksentry.RequestKey, r).
+					WithField("message", message).
+					WithError(err).
+					Error()
 				web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 				return
@@ -211,7 +236,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write([]byte(resultText))
 	if err != nil {
-		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+		log.WithField(logrushooksentry.RequestKey, r).
+			WithField("message", message).
+			WithError(err).
+			Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
