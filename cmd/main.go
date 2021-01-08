@@ -76,7 +76,10 @@ func main() {
 	queue.onNewValue = func(message Message) {
 		err := api.send(message)
 		if err != nil {
-			log.WithError(err).Error()
+			log.
+				WithError(err).
+				WithField("message", message).
+				Error()
 			exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 			return

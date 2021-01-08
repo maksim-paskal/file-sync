@@ -94,9 +94,9 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&message)
 	if err != nil {
 		log.
+			WithError(err).
 			WithField(logrushooksentry.RequestKey, r).
 			WithField("message", message).
-			WithError(err).
 			Error()
 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -113,9 +113,9 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.
+			WithError(err).
 			WithField(logrushooksentry.RequestKey, r).
 			WithField("message", message).
-			WithError(err).
 			Error()
 	}
 
@@ -146,8 +146,8 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		log.
-			WithField(logrushooksentry.RequestKey, r).
 			WithError(err).
+			WithField(logrushooksentry.RequestKey, r).
 			Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues("init").Inc()
@@ -169,7 +169,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 		_, err = w.Write([]byte("ok"))
 		if err != nil {
-			log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+			log.
+				WithError(err).
+				WithField(logrushooksentry.RequestKey, r).
+				Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
@@ -184,9 +187,9 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.
+			WithError(err).
 			WithField(logrushooksentry.RequestKey, r).
 			WithField("message", message).
-			WithError(err).
 			Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
@@ -207,9 +210,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	if *appConfig.redisEnabled {
 		id, err := web.queue.add(message)
 		if err != nil {
-			log.WithField(logrushooksentry.RequestKey, r).
-				WithField("message", message).
+			log.
 				WithError(err).
+				WithField(logrushooksentry.RequestKey, r).
+				WithField("message", message).
 				Error()
 			web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
@@ -221,9 +225,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			err := web.api.send(message)
 			if err != nil {
-				log.WithField(logrushooksentry.RequestKey, r).
-					WithField("message", message).
+				log.
 					WithError(err).
+					WithField(logrushooksentry.RequestKey, r).
+					WithField("message", message).
 					Error()
 				web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
@@ -236,9 +241,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write([]byte(resultText))
 	if err != nil {
-		log.WithField(logrushooksentry.RequestKey, r).
-			WithField("message", message).
+		log.
 			WithError(err).
+			WithField(logrushooksentry.RequestKey, r).
+			WithField("message", message).
 			Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -247,7 +253,10 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 func (web *Web) handlerHealthz(w http.ResponseWriter, r *http.Request) {
 	_, err := w.Write([]byte("ok"))
 	if err != nil {
-		log.WithField(logrushooksentry.RequestKey, r).WithError(err).Error()
+		log.
+			WithError(err).
+			WithField(logrushooksentry.RequestKey, r).
+			Error()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

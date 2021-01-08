@@ -64,7 +64,10 @@ func newQueue(key string) *Queue {
 
 				err = json.Unmarshal([]byte(result[1]), &message)
 				if err != nil {
-					log.WithError(err).Error()
+					log.
+						WithError(err).
+						WithField("message", message).
+						Error()
 				}
 
 				// run command in same order
