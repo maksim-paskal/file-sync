@@ -100,9 +100,6 @@ func (api *API) makeMove(message Message) error {
 	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
 	message.NewFileName = path.Join(*appConfig.destinationDir, message.NewFileName)
 
-	log.Info(message.FileName)
-	log.Info(message.NewFileName)
-
 	fileDir := filepath.Dir(message.NewFileName)
 
 	err := os.MkdirAll(fileDir, 0777)
@@ -127,7 +124,9 @@ func (api *API) makeDelete(message Message) error {
 		errorText := fmt.Sprintf("file %s not found", message.FileName)
 
 		if message.Force {
-			log.Warn(errorText)
+			log.
+				WithField("message", message).
+				Warn(errorText)
 		} else {
 			return errors.New(errorText)
 		}
@@ -219,7 +218,9 @@ func (api *API) makeSave(message Message) error {
 		}
 
 		if message.SHA256 != NewSHA256(data) {
-			log.Warnf("file %s SHA256 check failed", message.FileName)
+			log.
+				WithField("message", message).
+				Warnf("file %s SHA256 check failed", message.FileName)
 		}
 	}
 
