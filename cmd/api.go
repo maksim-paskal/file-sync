@@ -163,7 +163,7 @@ func (api *API) makeSave(message Message) error {
 				log.
 					WithError(err).
 					WithField("message", message).
-					Error()
+					Warn()
 			} else {
 				return err
 			}
@@ -176,7 +176,7 @@ func (api *API) makeSave(message Message) error {
 				log.
 					WithError(err).
 					WithField("message", message).
-					Error()
+					Warn()
 			} else {
 				return err
 			}
