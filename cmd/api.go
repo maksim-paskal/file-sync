@@ -59,12 +59,45 @@ type Response struct {
 }
 
 type API struct {
+	client *http.Client
 }
 
-func newAPI() *API {
+func newAPI() (*API, error) {
 	api := API{}
 
-	return &api
+	// Load client cert
+	cert, err := tls.LoadX509KeyPair(*appConfig.sslClientCrt, *appConfig.sslClientKey)
+	if err != nil {
+		return &API{}, errors.Wrap(err, "error in tls.LoadX509KeyPair")
+	}
+
+	// Load CA cert
+	caCert, err := ioutil.ReadFile(*appConfig.sslCA)
+	if err != nil {
+		return &API{}, errors.Wrap(err, "error in ioutil.ReadFile")
+	}
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	// Setup HTTPS client
+	tlsConfig := &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: true, //nolint:gosec
+	}
+
+	tlsConfig.BuildNameToCertificate()
+
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+	api.client = &http.Client{
+		Transport: transport,
+		Timeout:   *appConfig.syncTimeout,
+	}
+
+	return &api, nil
 }
 
 func (api *API) makeCopy(message Message) error {
@@ -232,36 +265,6 @@ func (api *API) makeSave(message Message) error {
 func (api *API) send(message Message) error {
 	ctx := context.Background()
 
-	// Load client cert
-	cert, err := tls.LoadX509KeyPair(*appConfig.sslClientCrt, *appConfig.sslClientKey)
-	if err != nil {
-		return errors.Wrap(err, "error in tls.LoadX509KeyPair")
-	}
-
-	// Load CA cert
-	caCert, err := ioutil.ReadFile(*appConfig.sslCA)
-	if err != nil {
-		return errors.Wrap(err, "error in ioutil.ReadFile")
-	}
-
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	// Setup HTTPS client
-	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{cert},
-		RootCAs:            caCertPool,
-		InsecureSkipVerify: true, //nolint:gosec
-	}
-
-	tlsConfig.BuildNameToCertificate()
-
-	transport := &http.Transport{TLSClientConfig: tlsConfig}
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   *appConfig.syncTimeout,
-	}
-
 	jsonStr, err := json.Marshal(message)
 	if err != nil {
 		return errors.Wrap(err, "error in json.Marshal")
@@ -276,7 +279,7 @@ func (api *API) send(message Message) error {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "error in client.Do")
 	}

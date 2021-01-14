@@ -68,7 +68,11 @@ func main() {
 
 	log.Infof("Starting %s...", appConfig.Version)
 
-	api := newAPI()
+	api, err := newAPI()
+	if err != nil {
+		log.WithError(err).Fatal()
+	}
+
 	exporter := newExporter()
 	queue := newQueue("file-sync")
 

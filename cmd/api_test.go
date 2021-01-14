@@ -26,12 +26,6 @@ type TestAPIItem struct {
 func TestGetMessageFromValue(t *testing.T) {
 	t.Parallel()
 
-	sourceDir := "../examples"
-	destinationDir := "../data-test"
-
-	appConfig.sourceDir = &sourceDir
-	appConfig.destinationDir = &destinationDir
-
 	t.Logf("config.sourceDir=%s", *appConfig.sourceDir)
 
 	tests := make([]TestAPIItem, 6)
@@ -96,7 +90,10 @@ func TestGetMessageFromValue(t *testing.T) {
 		},
 	}
 
-	api := newAPI()
+	api, err := newAPI()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, test := range tests {
 		t.Log(test.value)

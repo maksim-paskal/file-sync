@@ -27,7 +27,12 @@ func TestRouting_Queue(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	api := newAPI()
+
+	api, err := newAPI()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	exporter := newExporter()
 	queue := newQueue("file-sync")
 	web := newWeb(exporter, queue, api)
@@ -67,7 +72,12 @@ func TestRouting_Sync(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	api := newAPI()
+
+	api, err := newAPI()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	exporter := newExporter()
 	queue := newQueue("file-sync")
 	web := newWeb(exporter, queue, api)
