@@ -91,7 +91,17 @@ func (web *Web) startServer() {
 func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	message := Message{}
 
-	err := json.NewDecoder(r.Body).Decode(&message)
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.
+			WithError(err).
+			WithField(logrushooksentry.RequestKey, r).
+			WithField("message", message).
+			Error()
+	}
+
+	err = json.Unmarshal(body, &message)
 	if err != nil {
 		log.
 			WithError(err).
