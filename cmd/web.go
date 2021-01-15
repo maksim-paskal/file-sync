@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	pprof "net/http/pprof"
 	"strings"
 
 	logrushooksentry "github.com/maksim-paskal/logrus-hook-sentry"
@@ -92,6 +93,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	message := Message{}
 
 	defer r.Body.Close()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.
@@ -275,6 +277,12 @@ func (web *Web) getHTTPRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/queue", web.handlerQueue)
 	mux.HandleFunc("/api/healthz", web.handlerHealthz)
+
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	return mux
 }
