@@ -154,14 +154,13 @@ func (api *API) makeDelete(message Message) error {
 	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
 
 	if _, err := os.Stat(message.FileName); os.IsNotExist(err) {
-		errorText := fmt.Sprintf("file %s not found", message.FileName)
-
 		if message.Force {
 			log.
+				WithError(ErrFileNotFound).
 				WithField("message", message).
-				Warn(errorText)
+				Warn()
 		} else {
-			return errors.New(errorText)
+			return ErrFileNotFound
 		}
 	}
 
@@ -190,28 +189,24 @@ func (api *API) makeSave(message Message) error {
 	switch message.Type {
 	case MessageTypePut:
 		if !isFileNameNotExists {
-			err := fmt.Errorf("file %s must not exists", message.FileName)
-
 			if message.Force {
 				log.
-					WithError(err).
+					WithError(ErrFileMustNotExists).
 					WithField("message", message).
 					Warn()
 			} else {
-				return err
+				return ErrFileMustNotExists
 			}
 		}
 	case MessageTypePatch:
 		if isFileNameNotExists {
-			err := fmt.Errorf("file %s must exists", message.FileName)
-
 			if message.Force {
 				log.
-					WithError(err).
+					WithError(ErrFileMustExists).
 					WithField("message", message).
 					Warn()
 			} else {
-				return err
+				return ErrFileMustExists
 			}
 		}
 	}
@@ -252,8 +247,9 @@ func (api *API) makeSave(message Message) error {
 
 		if message.SHA256 != NewSHA256(data) {
 			log.
+				WithError(ErrSHA256Failed).
 				WithField("message", message).
-				Warnf("file %s SHA256 check failed", message.FileName)
+				Warn()
 		}
 	}
 
