@@ -57,4 +57,4 @@ upgrade:
 bulk:
 	while true; do curl "http://localhost:9336/api/queue?force=true&value=put:test.txt" ; sleep 0.1; done
 heap:
-	go tool pprof -http=:8080 -alloc_objects goprofex http://localhost:9336/debug/pprof/heap
+	go tool pprof -http=127.0.0.1:8080 http://localhost:9336/debug/pprof/heap
