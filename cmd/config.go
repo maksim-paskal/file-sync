@@ -29,6 +29,8 @@ type Config struct {
 	destinationDir    *string
 	syncAddress       *string
 	syncTimeout       *time.Duration
+	syncMaxRetryCount *int
+	syncRetryTimeout  *time.Duration
 	sslClientKey      *string
 	sslClientCrt      *string
 	sslServerKey      *string
@@ -41,23 +43,26 @@ type Config struct {
 }
 
 const (
-	syncTimeoutDefault = 30 * time.Second
+	syncTimeoutDefault      = 30 * time.Second
+	syncRetryTimeoutDeafult = 5 * time.Second
 )
 
 //nolint:gochecknoglobals
 var appConfig Config = Config{
-	Version:        gitVersion,
-	showVersion:    flag.Bool("version", false, "get version"),
-	logPretty:      flag.Bool("log.pretty", false, "logging level"),
-	logLevel:       flag.String("log.level", "INFO", "logging level"),
-	httpAddress:    flag.String("http.address", ":9336", "address"),
-	httpsAddress:   flag.String("https.address", ":9335", "address"),
-	metricsAddress: flag.String("metrics.address", ":9334", "address"),
-	sourceDir:      flag.String("dir.src", "data", "folder"),
-	destinationDir: flag.String("dir.dest", "data", "folder"),
-	syncAddress:    flag.String("sync.address", "localhost:9335", "destination server"),
-	syncTimeout:    flag.Duration("sync.timeout", syncTimeoutDefault, "destination server"),
-	sentryDSN:      flag.String("sentry.dsn", "", "Sentry DSN"),
+	Version:           gitVersion,
+	showVersion:       flag.Bool("version", false, "get version"),
+	logPretty:         flag.Bool("log.pretty", false, "logging level"),
+	logLevel:          flag.String("log.level", "INFO", "logging level"),
+	httpAddress:       flag.String("http.address", ":9336", "address"),
+	httpsAddress:      flag.String("https.address", ":9335", "address"),
+	metricsAddress:    flag.String("metrics.address", ":9334", "address"),
+	sourceDir:         flag.String("dir.src", "data", "folder"),
+	destinationDir:    flag.String("dir.dest", "data", "folder"),
+	syncAddress:       flag.String("sync.address", "localhost:9335", "destination server"),
+	syncTimeout:       flag.Duration("sync.timeout", syncTimeoutDefault, "destination server"),
+	syncMaxRetryCount: flag.Int("sync.maxRetryCount", 5, "maximum retry count, only for redisEnabled"),
+	syncRetryTimeout:  flag.Duration("sync.retryTimeout", syncRetryTimeoutDeafult, "retry timeout, only for redisEnabled"),
+	sentryDSN:         flag.String("sentry.dsn", "", "Sentry DSN"),
 	// ssl config
 	sslClientKey:      flag.String("ssl.clientKey", "ssl/client01.key", "ssl certificate"),
 	sslClientCrt:      flag.String("ssl.clientCrt", "ssl/client01.crt", "ssl certificate"),
