@@ -263,8 +263,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (web *Web) handlerHealthz(w http.ResponseWriter, r *http.Request) {
-	_, err := w.Write([]byte("ok"))
-	if err != nil {
+	if _, err := w.Write([]byte("ok")); err != nil {
 		log.
 			WithError(err).
 			WithField(logrushooksentry.RequestKey, r).
