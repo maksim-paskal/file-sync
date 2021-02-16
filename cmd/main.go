@@ -78,15 +78,25 @@ func main() {
 
 	// for redis
 	queue.onNewValue = func(message Message) {
-		err := api.send(message)
-		if err != nil {
-			log.
-				WithError(err).
-				WithField("message", message).
-				Error()
-			exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+		tryNum := 0
 
-			return
+		for tryNum < *appConfig.syncMaxRetryCount {
+			err := api.send(message)
+
+			if err != nil {
+				log.
+					WithError(err).
+					WithField("tryNum", tryNum).
+					WithField("message", message).
+					Error()
+				exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+
+				time.Sleep(*appConfig.syncRetryTimeout)
+			} else {
+				break
+			}
+
+			tryNum++
 		}
 	}
 
