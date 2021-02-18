@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -275,11 +276,40 @@ func (api *API) send(message Message) error {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return errors.Wrap(err, "error in client.Do")
+	tryNum := 0
+
+	var resp *http.Response = nil
+
+	var lastClientDoError error = nil
+
+	// retry on connection problems
+	for tryNum < *appConfig.syncMaxRetryCount {
+		tryNum++
+		if tryNum > 1 {
+			log.Debug("wait before try")
+			time.Sleep(*appConfig.syncRetryTimeout)
+		}
+
+		resp, lastClientDoError = api.client.Do(req)
+
+		if lastClientDoError != nil {
+			log.
+				WithField("tryNum", tryNum).
+				WithField("message", "message").
+				WithError(lastClientDoError).
+				Error("error in client.Do")
+
+			continue
+		}
+
+		defer resp.Body.Close()
+
+		break
 	}
-	defer resp.Body.Close()
+
+	if resp == nil {
+		return errors.Wrap(lastClientDoError, "error in client.Do")
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("status != 200")

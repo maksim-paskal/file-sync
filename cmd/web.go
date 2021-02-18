@@ -100,7 +100,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
 			WithField("message", message).
-			Error()
+			Error("error in ioutil.ReadAll")
 	}
 
 	err = json.Unmarshal(body, &message)
@@ -109,7 +109,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
 			WithField("message", message).
-			Error()
+			Error("error in json.Unmarshal")
 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
@@ -130,7 +130,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
 			WithField("message", message).
-			Error()
+			Error("error in web.api.processMessage")
 	}
 
 	results := Response{
@@ -162,7 +162,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		log.
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
-			Error()
+			Error("error in r.ParseForm()")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues("init").Inc()
 	}
@@ -186,7 +186,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 			log.
 				WithError(err).
 				WithFields(logrushooksentry.AddRequest(r)).
-				Error()
+				Error("error in w.Write()")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
@@ -204,7 +204,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
 			WithField("message", message).
-			Error()
+			Error("error in web.api.getMessageFromValue")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
@@ -227,7 +227,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 				WithError(err).
 				WithFields(logrushooksentry.AddRequest(r)).
 				WithField("message", message).
-				Error()
+				Error("error in web.queue.add")
 			web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 			return
@@ -242,7 +242,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 					WithError(err).
 					WithFields(logrushooksentry.AddRequest(r)).
 					WithField("message", message).
-					Error()
+					Error("error in web.api.send")
 				web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
 
 				return
@@ -258,7 +258,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
 			WithField("message", message).
-			Error()
+			Error("error in w.Write")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -268,7 +268,7 @@ func (web *Web) handlerHealthz(w http.ResponseWriter, r *http.Request) {
 		log.
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
-			Error()
+			Error("error in w.Write")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

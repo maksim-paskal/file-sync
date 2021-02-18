@@ -57,7 +57,9 @@ func newQueue(key string) *Queue {
 			for {
 				result, err := queue.rdb.BLPop(ctx, 0*time.Second, queue.key).Result()
 				if err != nil {
-					log.WithError(err).Error()
+					log.WithError(err).Error("error in queue.rdb.BLPop")
+
+					continue
 				}
 
 				message := Message{}
@@ -67,7 +69,9 @@ func newQueue(key string) *Queue {
 					log.
 						WithError(err).
 						WithField("message", message).
-						Error()
+						Error("error in json.Unmarshal")
+
+					continue
 				}
 
 				// run command in same order
