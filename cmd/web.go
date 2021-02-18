@@ -156,6 +156,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//nolint:cyclop
 func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {

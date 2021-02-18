@@ -175,6 +175,7 @@ func (api *API) makeDelete(message Message) error {
 	return nil
 }
 
+//nolint:cyclop
 func (api *API) makeSave(message Message) error {
 	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
 
@@ -259,6 +260,7 @@ func (api *API) makeSave(message Message) error {
 	return nil
 }
 
+//nolint:cyclop
 func (api *API) send(message Message) error {
 	ctx := context.Background()
 
@@ -278,9 +280,9 @@ func (api *API) send(message Message) error {
 
 	tryNum := 0
 
-	var resp *http.Response = nil
+	var resp *http.Response
 
-	var lastClientDoError error = nil
+	var lastClientDoError error
 
 	// retry on connection problems
 	for tryNum < *appConfig.syncMaxRetryCount {

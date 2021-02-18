@@ -48,7 +48,7 @@ const (
 )
 
 //nolint:gochecknoglobals
-var appConfig Config = Config{
+var appConfig = Config{
 	Version:           gitVersion,
 	showVersion:       flag.Bool("version", false, "get version"),
 	logPretty:         flag.Bool("log.pretty", false, "logging level"),

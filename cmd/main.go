@@ -24,7 +24,7 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	gitVersion string = "dev"
+	gitVersion = "dev"
 )
 
 func main() {
