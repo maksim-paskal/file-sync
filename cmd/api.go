@@ -297,7 +297,7 @@ func (api *API) send(message Message) error {
 		if lastClientDoError != nil {
 			log.
 				WithField("tryNum", tryNum).
-				WithField("message", "message").
+				WithField("message", message).
 				WithError(lastClientDoError).
 				Error("error in client.Do")
 
