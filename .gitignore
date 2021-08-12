@@ -1,5 +1,5 @@
 /file-sync
 /data*
 /ssl*
-_dist
+dist
 /deploy-*

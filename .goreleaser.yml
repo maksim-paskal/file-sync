@@ -1,0 +1,36 @@
+dockers:
+- goos: linux
+  goarch: amd64
+  extra_files:
+  - ./examples/ssl/ca.crt
+  - ./examples/ssl/server.crt
+  - ./examples/ssl/server.key
+  - ./examples/ssl/client01.crt
+  - ./examples/ssl/client01.key
+  - ./examples/tests/test.txt
+  image_templates:
+  - paskalmaksim/file-sync:latest
+  - paskalmaksim/file-sync:{{ .Tag }}
+builds:
+- dir: ./cmd
+  env:
+  - CGO_ENABLED=0
+  flags:
+  - -trimpath
+  ldflags:
+  - -X github.com/maksim-paskal/file-sync/pkg/config.gitVersion={{.Version}}-{{.Commit}}-{{.Date}}
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
