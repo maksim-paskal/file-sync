@@ -7,13 +7,10 @@ test:
 	golangci-lint run -v
 testIntegration:
 	CONFIG=config_test.yaml go test -tags=integration -race ./pkg/queue
-buildDev:
+build-dev:
+	goreleaser build --rm-dist --skip-validate
+	mv ./dist/file-sync_linux_amd64/file-sync ./file-sync
 	docker build --pull . -t paskalmaksim/file-sync:dev
-push:
-	docker push paskalmaksim/file-sync:dev
-build:
-	docker-compose pull
-	docker-compose build
 run:
 	rm -rf data
 	go run --race ./cmd -log.level=DEBUG -log.pretty -redis.enabled -dir.src=data-src
@@ -21,6 +18,8 @@ clean:
 	rm -rf file-sync
 	docker-compose down --remove-orphans 
 runDocker:
+	goreleaser build --rm-dist --skip-validate
+	mv ./dist/file-sync_linux_amd64/file-sync ./file-sync
 	docker-compose down --remove-orphans && docker-compose up
 testPut:
 	curl --data-binary '@examples/put.json' http://localhost:9335/api/endpoint
@@ -51,8 +50,6 @@ testSSL:
 
 	curl -k --key ssl/client01.key --cert ssl/client01.crt https://localhost:9335/api/sync
 	curl -k https://localhost:9335/api/sync
-buildBinnary:
-	scripts/build-all.sh
 upgrade:
 	go get -v -u all
 	go mod tidy
