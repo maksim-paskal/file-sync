@@ -1,5 +1,6 @@
 FROM alpine:latest
 
+# use goreleaser to build binnary
 COPY ./file-sync /app/file-sync
 
 WORKDIR /app
