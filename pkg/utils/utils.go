@@ -10,13 +10,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package utils
 
-import "errors"
-
-var (
-	ErrFileNotFound      = errors.New("file not found")
-	ErrFileMustNotExists = errors.New("file must not exists")
-	ErrFileMustExists    = errors.New("file must exists")
-	ErrSHA256Failed      = errors.New("file SHA256 check failed")
+import (
+	"crypto/sha256"
+	"encoding/hex"
 )
+
+func NewSHA256(data []byte) string {
+	hash := sha256.Sum256(data)
+	hashByte := hash[:]
+
+	return hex.EncodeToString(hashByte)
+}

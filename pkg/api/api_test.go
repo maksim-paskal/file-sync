@@ -10,29 +10,36 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package api_test
 
 import (
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/config"
 )
 
 type TestAPIItem struct {
 	value   string
-	message Message
+	message api.Message
 }
 
 func TestGetMessageFromValue(t *testing.T) {
 	t.Parallel()
 
-	t.Logf("config.sourceDir=%s", *appConfig.sourceDir)
+	if err := config.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("config.sourceDir=%s", *config.Get().SourceDir)
 
 	tests := make([]TestAPIItem, 6)
 
 	tests[0] = TestAPIItem{
 		value: "put:tests/test.txt",
-		message: Message{
+		message: api.Message{
 			Type:              "put",
 			FileName:          "tests/test.txt",
 			FileContentBase64: "ZHNkZA==",
@@ -42,7 +49,7 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	tests[1] = TestAPIItem{
 		value: "patch:tests/test.txt",
-		message: Message{
+		message: api.Message{
 			Type:              "patch",
 			FileName:          "tests/test.txt",
 			FileContentBase64: "ZHNkZA==",
@@ -52,7 +59,7 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	tests[2] = TestAPIItem{
 		value: "copy:tests/test.txt:tests/test2.txt",
-		message: Message{
+		message: api.Message{
 			Type:              "copy",
 			FileName:          "tests/test.txt",
 			NewFileName:       "tests/test2.txt",
@@ -64,7 +71,7 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	tests[3] = TestAPIItem{
 		value: "move:tests/test2.txt:tests/test/test/test/test3.txt",
-		message: Message{
+		message: api.Message{
 			Type:              "move",
 			FileName:          "tests/test2.txt",
 			NewFileName:       "tests/test/test/test/test3.txt",
@@ -76,7 +83,7 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	tests[4] = TestAPIItem{
 		value: "delete:tests/test/test/test/test3.txt",
-		message: Message{
+		message: api.Message{
 			Type:     "delete",
 			FileName: "tests/test/test/test/test3.txt",
 		},
@@ -84,13 +91,13 @@ func TestGetMessageFromValue(t *testing.T) {
 
 	tests[5] = TestAPIItem{
 		value: "delete:tests/test.txt",
-		message: Message{
+		message: api.Message{
 			Type:     "delete",
 			FileName: "tests/test.txt",
 		},
 	}
 
-	api, err := newAPI()
+	err := api.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +105,7 @@ func TestGetMessageFromValue(t *testing.T) {
 	for _, test := range tests {
 		t.Log(test.value)
 
-		result, err := api.getMessageFromValue(test.value)
+		result, err := api.GetMessageFromValue(test.value)
 		if err != nil {
 			t.Error(err)
 
@@ -114,7 +121,7 @@ func TestGetMessageFromValue(t *testing.T) {
 			return
 		}
 
-		err = api.processMessage(test.message)
+		err = api.ProcessMessage(test.message)
 
 		if err != nil {
 			t.Error(err)

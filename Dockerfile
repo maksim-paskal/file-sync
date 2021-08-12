@@ -1,6 +1,7 @@
 FROM golang:1.16 as build
 
 COPY ./cmd /usr/src/app/cmd
+COPY ./pkg /usr/src/app/pkg
 COPY go.* /usr/src/app/
 COPY .git /usr/src/app/
 
@@ -13,7 +14,7 @@ RUN cd /usr/src/app \
   && go mod download \
   && go mod verify \
   && go build -v -o file-sync -ldflags \
-  "-X main.gitVersion=$(git describe --tags `git rev-list --tags --max-count=1`)-$(date +%Y%m%d%H%M%S)-$(git log -n1 --pretty='%h')" \
+  "-X github.com/maksim-paskal/file-sync/pkg/config.gitVersion=$(git describe --tags `git rev-list --tags --max-count=1`)-$(date +%Y%m%d%H%M%S)-$(git log -n1 --pretty='%h')" \
   ./cmd \
   && /usr/src/app/file-sync -version
 
@@ -37,4 +38,4 @@ RUN addgroup -g 101 -S app \
 
 USER 101
 
-CMD /app/file-sync
+ENTRYPOINT ["/app/file-sync"]

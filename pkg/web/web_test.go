@@ -10,7 +10,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package web_test
 
 import (
 	"bytes"
@@ -20,24 +20,30 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/config"
+	"github.com/maksim-paskal/file-sync/pkg/web"
 )
+
+var ctx = context.Background()
+
+func init() { //nolint: gochecknoinits
+	if err := config.Load(); err != nil {
+		panic(err)
+	}
+
+	if err := api.Init(); err != nil {
+		panic(err)
+	}
+}
 
 func TestRouting_Queue(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-
-	api, err := newAPI()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	exporter := newExporter()
-	queue := newQueue("file-sync")
-	web := newWeb(exporter, queue, api)
-
-	srv := httptest.NewServer(web.getHTTPRouter())
+	srv := httptest.NewServer(web.GetHTTPRouter())
 	defer srv.Close()
 
 	queueURL := fmt.Sprintf("%s/api/queue?value=put:tests/test.txt", srv.URL)
@@ -71,23 +77,12 @@ func TestRouting_Queue(t *testing.T) {
 func TestRouting_Sync(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-
-	api, err := newAPI()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	exporter := newExporter()
-	queue := newQueue("file-sync")
-	web := newWeb(exporter, queue, api)
-
-	srv := httptest.NewServer(web.getHTTPSRouter())
+	srv := httptest.NewServer(web.GetHTTPSRouter())
 	defer srv.Close()
 
 	queueURL := fmt.Sprintf("%s/api/sync", srv.URL)
 
-	message := Message{
+	message := api.Message{
 		Type:              "put",
 		FileName:          "tests/test-http.txt",
 		FileContentBase64: "ZHNkZA==",
@@ -117,7 +112,75 @@ func TestRouting_Sync(t *testing.T) {
 	}
 
 	if string(body) != `{"type":"put","fileName":"tests/test-http.txt","statusCode":200,"statusText":"ok"}` {
+		t.Fatalf("text %s not OK", string(body))
+	}
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status %d not OK", res.StatusCode)
+	}
+}
+
+func TestRouting_Healthz(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(web.GetHTTPRouter())
+	defer srv.Close()
+
+	queueURL := fmt.Sprintf("%s/api/healthz", srv.URL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queueURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(body) != "ok" {
 		t.Errorf("text %s not OK", string(body))
+	}
+
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("status %d not OK", res.StatusCode)
+	}
+}
+
+func TestRouting_Metrics(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(web.GetMetricsRouter())
+	defer srv.Close()
+
+	queueURL := fmt.Sprintf("%s/metrics", srv.URL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queueURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if m := "filesync_up"; !strings.Contains(string(body), m) {
+		t.Fatal(fmt.Sprintf("no metric %s found", m))
 	}
 
 	if res.StatusCode != http.StatusOK {

@@ -10,7 +10,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package api
 
 import (
 	"bytes"
@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -28,8 +29,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
+	"github.com/maksim-paskal/file-sync/pkg/config"
+	"github.com/maksim-paskal/file-sync/pkg/metrics"
+	"github.com/maksim-paskal/file-sync/pkg/utils"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -40,16 +43,23 @@ const (
 	MessageTypeDelete = "delete"
 	MessageTypeCopy   = "copy"
 	MessageTypeMove   = "move"
+	defaultFileMode1  = fs.FileMode(0777)
+	defaultFileMode2  = fs.FileMode(0600)
+	defaultFileMode3  = fs.FileMode(0644)
+	maxRetryCount     = 20
 )
 
 type Message struct {
+	ID                string `json:"id"`
+	RetryCount        int    `json:"retryCount"`
+	RetryLastError    string `json:"retryLastError"`
 	Type              string `json:"type"`
 	FileName          string `json:"fileName"`
 	NewFileName       string `json:"newFileName"`
 	Force             bool   `json:"force"`
 	FileContent       string `json:"fileContent"`
 	FileContentBase64 string `json:"fileContentBase64"`
-	SHA256            string `json:"SHA256"`
+	SHA256            string `json:"sha256"`
 }
 
 type Response struct {
@@ -59,23 +69,19 @@ type Response struct {
 	StatusText string `json:"statusText"`
 }
 
-type API struct {
-	client *http.Client
-}
+var client *http.Client
 
-func newAPI() (*API, error) {
-	api := API{}
-
+func Init() error {
 	// Load client cert
-	cert, err := tls.LoadX509KeyPair(*appConfig.sslClientCrt, *appConfig.sslClientKey)
+	cert, err := tls.LoadX509KeyPair(*config.Get().SslClientCrt, *config.Get().SslClientKey)
 	if err != nil {
-		return &API{}, errors.Wrap(err, "error in tls.LoadX509KeyPair")
+		return errors.Wrap(err, "error in tls.LoadX509KeyPair")
 	}
 
 	// Load CA cert
-	caCert, err := ioutil.ReadFile(*appConfig.sslCA)
+	caCert, err := ioutil.ReadFile(*config.Get().SslCA)
 	if err != nil {
-		return &API{}, errors.Wrap(err, "error in ioutil.ReadFile")
+		return errors.Wrap(err, "error in ioutil.ReadFile")
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -93,17 +99,18 @@ func newAPI() (*API, error) {
 	transport := &http.Transport{
 		TLSClientConfig: tlsConfig,
 	}
-	api.client = &http.Client{
+
+	client = &http.Client{
 		Transport: transport,
-		Timeout:   *appConfig.syncTimeout,
+		Timeout:   *config.Get().SyncTimeout,
 	}
 
-	return &api, nil
+	return nil
 }
 
-func (api *API) makeCopy(message Message) error {
-	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
-	message.NewFileName = path.Join(*appConfig.destinationDir, message.NewFileName)
+func makeCopy(message Message) error {
+	message.FileName = path.Join(*config.Get().DestinationDir, message.FileName)
+	message.NewFileName = path.Join(*config.Get().DestinationDir, message.NewFileName)
 
 	sourceFileStat, err := os.Stat(message.FileName)
 	if err != nil {
@@ -130,13 +137,28 @@ func (api *API) makeCopy(message Message) error {
 	return errors.Wrap(err, "error in io.Copy")
 }
 
-func (api *API) makeMove(message Message) error {
-	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
-	message.NewFileName = path.Join(*appConfig.destinationDir, message.NewFileName)
+func makeMove(message Message) error {
+	message.FileName = path.Join(*config.Get().DestinationDir, message.FileName)
+	message.NewFileName = path.Join(*config.Get().DestinationDir, message.NewFileName)
+
+	if _, err := os.Stat(message.FileName); os.IsNotExist(err) {
+		// if file not found and reach maxRetryCount exit with success, logs warning
+		if message.RetryCount > maxRetryCount {
+			metrics.QueueMaxRetryCountCounter.WithLabelValues(MessageTypeMove).Inc()
+			log.
+				WithError(ErrFileNotFound).
+				WithField("message", message).
+				Warn()
+
+			return nil
+		}
+
+		return errors.Wrapf(err, "%s not exists", message.FileName)
+	}
 
 	fileDir := filepath.Dir(message.NewFileName)
 
-	err := os.MkdirAll(fileDir, 0777)
+	err := os.MkdirAll(fileDir, defaultFileMode1)
 	if err != nil {
 		return errors.Wrap(err, "error in os.MkdirAll")
 	}
@@ -151,18 +173,22 @@ func (api *API) makeMove(message Message) error {
 	return nil
 }
 
-func (api *API) makeDelete(message Message) error {
-	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
+func makeDelete(message Message) error {
+	message.FileName = path.Join(*config.Get().DestinationDir, message.FileName)
 
 	if _, err := os.Stat(message.FileName); os.IsNotExist(err) {
-		if message.Force {
+		// if file not found and reach maxRetryCount exit with success, logs warning
+		if message.RetryCount > maxRetryCount {
+			metrics.QueueMaxRetryCountCounter.WithLabelValues(MessageTypeDelete).Inc()
 			log.
 				WithError(ErrFileNotFound).
 				WithField("message", message).
 				Warn()
-		} else {
-			return ErrFileNotFound
+
+			return nil
 		}
+
+		return errors.Wrapf(err, "%s not exists", message.FileName)
 	}
 
 	err := os.Remove(message.FileName)
@@ -175,9 +201,8 @@ func (api *API) makeDelete(message Message) error {
 	return nil
 }
 
-//nolint:cyclop
-func (api *API) makeSave(message Message) error {
-	message.FileName = path.Join(*appConfig.destinationDir, message.FileName)
+func makeSave(message Message) error { //nolint:cyclop
+	message.FileName = path.Join(*config.Get().DestinationDir, message.FileName)
 
 	fileInfo, err := os.Stat(message.FileName)
 	isFileNameNotExists := os.IsNotExist(err)
@@ -226,17 +251,17 @@ func (api *API) makeSave(message Message) error {
 
 	fileDir := filepath.Dir(message.FileName)
 
-	err = os.MkdirAll(fileDir, 0777)
+	err = os.MkdirAll(fileDir, defaultFileMode1)
 	if err != nil {
 		return errors.Wrap(err, "error in os.MkdirAll")
 	}
 
-	err = ioutil.WriteFile(message.FileName, fileContent, 0600)
+	err = ioutil.WriteFile(message.FileName, fileContent, defaultFileMode2)
 	if err != nil {
 		return errors.Wrap(err, "error in ioutil.WriteFile")
 	}
 
-	err = os.Chmod(message.FileName, 0644)
+	err = os.Chmod(message.FileName, defaultFileMode3)
 	if err != nil {
 		return errors.Wrap(err, "error in os.Chmod")
 	}
@@ -247,7 +272,7 @@ func (api *API) makeSave(message Message) error {
 			return errors.Wrap(err, "error in ioutil.ReadFile")
 		}
 
-		if message.SHA256 != NewSHA256(data) {
+		if message.SHA256 != utils.NewSHA256(data) {
 			log.
 				WithError(ErrSHA256Failed).
 				WithField("message", message).
@@ -260,8 +285,7 @@ func (api *API) makeSave(message Message) error {
 	return nil
 }
 
-//nolint:cyclop
-func (api *API) send(message Message) error {
+func Send(message Message) error {
 	ctx := context.Background()
 
 	jsonStr, err := json.Marshal(message)
@@ -269,7 +293,7 @@ func (api *API) send(message Message) error {
 		return errors.Wrap(err, "error in json.Marshal")
 	}
 
-	url := fmt.Sprintf("https://%s/api/sync", *appConfig.syncAddress)
+	url := fmt.Sprintf("https://%s/api/sync", *config.Get().SyncAddress)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
@@ -278,40 +302,16 @@ func (api *API) send(message Message) error {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	tryNum := 0
-
-	var resp *http.Response
-
-	var lastClientDoError error
-
-	// retry on connection problems
-	for tryNum < *appConfig.syncMaxRetryCount {
-		tryNum++
-		if tryNum > 1 {
-			log.Debug("wait before try")
-			time.Sleep(*appConfig.syncRetryTimeout)
-		}
-
-		resp, lastClientDoError = api.client.Do(req)
-
-		if lastClientDoError != nil {
-			log.
-				WithField("tryNum", tryNum).
-				WithField("message", message).
-				WithError(lastClientDoError).
-				Error("error in client.Do")
-
-			continue
-		}
-
-		defer resp.Body.Close()
-
-		break
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
 	}
 
 	if resp == nil {
-		return errors.Wrap(lastClientDoError, "error in client.Do")
+		return errors.Wrap(err, "error in client.Do")
 	}
+
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("status != 200")
@@ -339,7 +339,7 @@ func (api *API) send(message Message) error {
 	return nil
 }
 
-func (api *API) getMessageFromValue(value string) (Message, error) {
+func GetMessageFromValue(value string) (Message, error) {
 	message := Message{}
 
 	if len(value) == 0 {
@@ -368,7 +368,7 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 	isSrcOperations := message.Type == MessageTypePut || message.Type == MessageTypePatch
 
 	if isSrcOperations {
-		filePath := path.Join(*appConfig.sourceDir, dataValues[1])
+		filePath := path.Join(*config.Get().SourceDir, dataValues[1])
 		fileInfo, err := os.Stat(filePath)
 
 		if os.IsNotExist(err) {
@@ -384,25 +384,25 @@ func (api *API) getMessageFromValue(value string) (Message, error) {
 			return message, errors.Wrap(err, "error in ioutil.ReadFile")
 		}
 
-		message.SHA256 = NewSHA256(fileContent)
+		message.SHA256 = utils.NewSHA256(fileContent)
 		message.FileContentBase64 = base64.StdEncoding.EncodeToString(fileContent)
 	}
 
 	return message, nil
 }
 
-func (api *API) processMessage(message Message) error {
+func ProcessMessage(message Message) error {
 	switch message.Type {
 	case MessageTypePut:
-		return api.makeSave(message)
+		return makeSave(message)
 	case MessageTypePatch:
-		return api.makeSave(message)
+		return makeSave(message)
 	case MessageTypeDelete:
-		return api.makeDelete(message)
+		return makeDelete(message)
 	case MessageTypeCopy:
-		return api.makeCopy(message)
+		return makeCopy(message)
 	case MessageTypeMove:
-		return api.makeMove(message)
+		return makeMove(message)
 	default:
 		return fmt.Errorf("unknown type %s", message.Type)
 	}
