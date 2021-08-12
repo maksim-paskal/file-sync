@@ -5,6 +5,7 @@ issues:
 linters:
   enable-all: true
   disable:
+  - gochecknoglobals
   - funlen
   - testpackage
   - goerr113

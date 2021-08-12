@@ -18,33 +18,35 @@ import (
 	"os"
 	"time"
 
+	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/config"
+	"github.com/maksim-paskal/file-sync/pkg/metrics"
+	"github.com/maksim-paskal/file-sync/pkg/queue"
+	"github.com/maksim-paskal/file-sync/pkg/web"
 	logrushooksentry "github.com/maksim-paskal/logrus-hook-sentry"
 	log "github.com/sirupsen/logrus"
 )
 
-//nolint:gochecknoglobals
-var (
-	gitVersion = "dev"
-)
+var showVersion = flag.Bool("version", false, "get version")
 
-func main() {
+func main() { //nolint: cyclop
 	ctx := context.Background()
 
 	flag.Parse()
 
-	if *appConfig.showVersion {
-		os.Stdout.WriteString(appConfig.Version)
+	if *showVersion {
+		os.Stdout.WriteString(config.GetVersion())
 		os.Exit(0)
 	}
 
-	level, err := log.ParseLevel(*appConfig.logLevel)
+	level, err := log.ParseLevel(*config.Get().LogLevel)
 	if err != nil {
 		log.WithError(err).Fatal()
 	}
 
 	log.SetLevel(level)
 
-	if !*appConfig.logPretty {
+	if !*config.Get().LogPretty {
 		log.SetFormatter(&log.JSONFormatter{
 			TimestampFormat: time.RFC3339Nano,
 		})
@@ -54,9 +56,13 @@ func main() {
 		log.SetReportCaller(true)
 	}
 
+	if err := config.Load(); err != nil {
+		log.WithError(err).Debug()
+	}
+
 	hook, err := logrushooksentry.NewHook(logrushooksentry.Options{
-		SentryDSN: *appConfig.sentryDSN,
-		Release:   appConfig.Version,
+		SentryDSN: *config.Get().SentryDSN,
+		Release:   config.GetVersion(),
 	})
 	if err != nil {
 		log.WithError(err).Fatal()
@@ -66,32 +72,48 @@ func main() {
 
 	defer hook.Stop()
 
-	log.Infof("Starting %s...", appConfig.Version)
+	log.Infof("Starting %s...", config.GetVersion())
+	log.Debug(config.String())
 
-	api, err := newAPI()
+	err = api.Init()
 	if err != nil {
 		log.WithError(err).Fatal()
 	}
 
-	exporter := newExporter()
-	queue := newQueue("file-sync")
+	err = queue.Init()
+	if err != nil {
+		log.WithError(err).Fatal()
+	}
+
+	if *config.Get().RedisEnabled {
+		go queue.ScheduleMetrics()
+	}
 
 	// for redis
-	queue.onNewValue = func(message Message) {
-		err := api.send(message)
+	queue.OnNewValue = func(message api.Message) {
+		err := api.Send(message)
 		if err != nil {
 			log.
 				WithError(err).
 				WithField("message", message).
 				Error("error in api.send")
-			exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+			metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
 
-			time.Sleep(*appConfig.syncRetryTimeout)
+			message.RetryCount++
+			message.RetryLastError = err.Error()
+
+			_, err = queue.Add(message)
+
+			if err != nil {
+				log.
+					WithError(err).
+					WithField("message", message).
+					Error("error in queue.Add")
+			}
 		}
 	}
 
-	newWeb(exporter, queue, api).startServer()
-	exporter.startServer()
+	web.StartServer()
 
 	<-ctx.Done()
 }

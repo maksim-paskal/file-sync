@@ -10,22 +10,28 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package web
 
 import (
-	"testing"
+	"net/http"
+
+	log "github.com/sirupsen/logrus"
 )
 
-func TestMain(_ *testing.M) {
-	sourceDir := "../examples"
-	destinationDir := "../data-test"
-	sslClientCrt := "../examples/ssl/client01.crt"
-	sslClientKey := "../examples/ssl/client01.key"
-	sslCA := "../examples/ssl/ca.crt"
+func logRequestHandler(server string, h http.Handler) http.Handler {
+	logger := log.WithFields(log.Fields{
+		"server": server,
+	})
 
-	appConfig.sslClientCrt = &sslClientCrt
-	appConfig.sslClientKey = &sslClientKey
-	appConfig.sslCA = &sslCA
-	appConfig.sourceDir = &sourceDir
-	appConfig.destinationDir = &destinationDir
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r)
+
+		if r.URL.Path == "/api/healthz" {
+			logger.Debugf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+		} else {
+			logger.Infof("%s %s %s", r.RemoteAddr, r.Method, r.URL)
+		}
+	}
+
+	return http.HandlerFunc(fn)
 }

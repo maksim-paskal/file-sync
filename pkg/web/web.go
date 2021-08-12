@@ -10,41 +10,28 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package web
 
 import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	pprof "net/http/pprof"
 	"strings"
 
+	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/config"
+	"github.com/maksim-paskal/file-sync/pkg/metrics"
+	"github.com/maksim-paskal/file-sync/pkg/queue"
 	logrushooksentry "github.com/maksim-paskal/logrus-hook-sentry"
 	log "github.com/sirupsen/logrus"
 )
 
-type Web struct {
-	api      *API
-	exporter *Exporter
-	queue    *Queue
-}
-
-func newWeb(exporter *Exporter, queue *Queue, api *API) *Web {
-	web := Web{
-		api:      api,
-		exporter: exporter,
-		queue:    queue,
-	}
-
-	return &web
-}
-
-func (web *Web) startServer() {
+func StartServer() {
 	go func() {
-		caCertPEM, err := ioutil.ReadFile(*appConfig.sslCA)
+		caCertPEM, err := ioutil.ReadFile(*config.Get().SslCA)
 		if err != nil {
 			log.WithError(err).Fatal("can not load ca")
 		}
@@ -57,8 +44,8 @@ func (web *Web) startServer() {
 		}
 
 		server := &http.Server{
-			Addr:    *appConfig.httpsAddress,
-			Handler: web.logRequestHandler("sync", web.getHTTPSRouter()),
+			Addr:    *config.Get().HTTPSAddress,
+			Handler: logRequestHandler("sync", GetHTTPSRouter()),
 			TLSConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
 				ClientAuth: tls.RequireAndVerifyClientCert,
@@ -68,7 +55,7 @@ func (web *Web) startServer() {
 
 		log.Infof("Start TLS server on %s", server.Addr)
 
-		err = server.ListenAndServeTLS(*appConfig.sslServerCrt, *appConfig.sslServerKey)
+		err = server.ListenAndServeTLS(*config.Get().SslServerCrt, *config.Get().SslServerKey)
 		if err != nil {
 			log.WithError(err).Fatal()
 		}
@@ -76,8 +63,8 @@ func (web *Web) startServer() {
 
 	go func() {
 		server := &http.Server{
-			Addr:    *appConfig.httpAddress,
-			Handler: web.logRequestHandler("queue", web.getHTTPRouter()),
+			Addr:    *config.Get().HTTPAddress,
+			Handler: logRequestHandler("queue", GetHTTPRouter()),
 		}
 
 		log.Infof("Start server on %s", server.Addr)
@@ -87,10 +74,26 @@ func (web *Web) startServer() {
 			log.WithError(err).Fatal()
 		}
 	}()
+
+	go func() {
+		server := &http.Server{
+			Addr:    *config.Get().MetricsAddress,
+			Handler: logRequestHandler("metrics", GetMetricsRouter()),
+		}
+
+		log.Infof("Start metrics server on %s", server.Addr)
+
+		err := server.ListenAndServe()
+		if err != nil {
+			log.WithError(err).Fatal()
+		}
+	}()
+
+	metrics.Up.Set(1)
 }
 
-func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
-	message := Message{}
+func handlerSync(w http.ResponseWriter, r *http.Request) {
+	message := api.Message{}
 
 	defer r.Body.Close()
 
@@ -123,7 +126,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 			Debug()
 	}
 
-	err = web.api.processMessage(message)
+	err = api.ProcessMessage(message)
 
 	if err != nil {
 		log.
@@ -133,7 +136,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 			Error("error in web.api.processMessage")
 	}
 
-	results := Response{
+	results := api.Response{
 		Type:     message.Type,
 		FileName: message.FileName,
 	}
@@ -156,8 +159,7 @@ func (web *Web) handlerSync(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//nolint:cyclop
-func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
+func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 	err := r.ParseForm()
 	if err != nil {
 		log.
@@ -165,7 +167,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 			WithFields(logrushooksentry.AddRequest(r)).
 			Error("error in r.ParseForm()")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		web.exporter.queueErrorCounter.WithLabelValues("init").Inc()
+		metrics.QueueErrorCounter.WithLabelValues("init").Inc()
 	}
 
 	value := r.Form.Get("value")
@@ -194,7 +196,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := web.api.getMessageFromValue(value)
+	message, err := api.GetMessageFromValue(value)
 
 	if isForced {
 		message.Force = true
@@ -207,7 +209,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 			WithField("message", message).
 			Error("error in web.api.getMessageFromValue")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+		metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
 
 		return
 	}
@@ -221,37 +223,37 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 
 	resultText := "ok"
 
-	if *appConfig.redisEnabled {
-		id, err := web.queue.add(message)
+	if *config.Get().RedisEnabled {
+		id, err := queue.Add(message)
 		if err != nil {
 			log.
 				WithError(err).
 				WithFields(logrushooksentry.AddRequest(r)).
 				WithField("message", message).
 				Error("error in web.queue.add")
-			web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+			metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
 
 			return
 		}
 
-		resultText = fmt.Sprintf("total queue size = %d", id)
+		resultText = id
 	} else {
 		go func() {
-			err := web.api.send(message)
+			err := api.Send(message)
 			if err != nil {
 				log.
 					WithError(err).
 					WithFields(logrushooksentry.AddRequest(r)).
 					WithField("message", message).
 					Error("error in web.api.send")
-				web.exporter.queueErrorCounter.WithLabelValues(message.Type).Inc()
+				metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
 
 				return
 			}
 		}()
 	}
 
-	web.exporter.queueRequestCounter.WithLabelValues(message.Type).Inc()
+	metrics.QueueRequestCounter.WithLabelValues(message.Type).Inc()
 
 	_, err = w.Write([]byte(resultText))
 	if err != nil {
@@ -264,7 +266,7 @@ func (web *Web) handlerQueue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (web *Web) handlerHealthz(w http.ResponseWriter, r *http.Request) {
+func handlerHealthz(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write([]byte("ok")); err != nil {
 		log.
 			WithError(err).
@@ -274,10 +276,87 @@ func (web *Web) handlerHealthz(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (web *Web) getHTTPRouter() *http.ServeMux {
+func handlerQueueInfo(w http.ResponseWriter, r *http.Request) {
+	meta, err := queue.Info()
+	if err != nil {
+		log.
+			WithError(err).
+			WithFields(logrushooksentry.AddRequest(r)).
+			Error("error in queue.Info")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	if _, err := w.Write([]byte(meta)); err != nil {
+		log.
+			WithError(err).
+			WithFields(logrushooksentry.AddRequest(r)).
+			Error("error in w.Write")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func handlerQueueList(w http.ResponseWriter, r *http.Request) {
+	list, err := queue.List()
+	if err != nil {
+		log.
+			WithError(err).
+			WithFields(logrushooksentry.AddRequest(r)).
+			Error("error in queue.List")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	listJSON, err := json.MarshalIndent(list, "", " ")
+	if err != nil {
+		log.
+			WithError(err).
+			WithFields(logrushooksentry.AddRequest(r)).
+			Error("error in json.Marshal")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	if _, err := w.Write(listJSON); err != nil {
+		log.
+			WithError(err).
+			WithFields(logrushooksentry.AddRequest(r)).
+			Error("error in w.Write")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func handlerQueueFlush(w http.ResponseWriter, r *http.Request) {
+	err := queue.Flush()
+	if err != nil {
+		log.
+			WithError(err).
+			WithFields(logrushooksentry.AddRequest(r)).
+			Error("error in queue.Flush")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
+	}
+
+	if _, err := w.Write([]byte("ok")); err != nil {
+		log.
+			WithError(err).
+			WithFields(logrushooksentry.AddRequest(r)).
+			Error("error in w.Write")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func GetHTTPRouter() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/queue", web.handlerQueue)
-	mux.HandleFunc("/api/healthz", web.handlerHealthz)
+	mux.HandleFunc("/api/queue", handlerQueue)
+	mux.HandleFunc("/api/queue/info", handlerQueueInfo)
+	mux.HandleFunc("/api/queue/list", handlerQueueList)
+	mux.HandleFunc("/api/queue/flush", handlerQueueFlush)
+	mux.HandleFunc("/api/healthz", handlerHealthz)
 
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -288,27 +367,16 @@ func (web *Web) getHTTPRouter() *http.ServeMux {
 	return mux
 }
 
-func (web *Web) getHTTPSRouter() *http.ServeMux {
+func GetHTTPSRouter() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/sync", web.handlerSync)
+	mux.HandleFunc("/api/sync", handlerSync)
 
 	return mux
 }
 
-func (web *Web) logRequestHandler(server string, h http.Handler) http.Handler {
-	logger := log.WithFields(log.Fields{
-		"server": server,
-	})
+func GetMetricsRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", metrics.GetHandler())
 
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		h.ServeHTTP(w, r)
-
-		if r.URL.Path == "/api/healthz" {
-			logger.Debugf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
-		} else {
-			logger.Infof("%s %s %s", r.RemoteAddr, r.Method, r.URL)
-		}
-	}
-
-	return http.HandlerFunc(fn)
+	return mux
 }

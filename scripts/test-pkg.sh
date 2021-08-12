@@ -1,4 +1,5 @@
-set -euo pipefail
+
+#!/usr/bin/env bash
 
 # Copyright paskal.maksim@gmail.com
 #
@@ -13,18 +14,9 @@ set -euo pipefail
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+set -ex
 
-export CGO_ENABLED=0
-export GO111MODULE=on
-export TAGS=""
-export GOFLAGS="-trimpath"
-export LDFLAGS="-X github.com/maksim-paskal/file-sync/pkg/config.gitVersion=$(git describe --tags `git rev-list --tags --max-count=1`)-$(date +%Y%m%d%H%M%S)-$(git log -n1 --pretty='%h')"
-export TARGETS="darwin/amd64 linux/amd64"
-export BINNAME="file-sync"
-export GOX="go run github.com/mitchellh/gox"
+export CONFIG=config_test.yaml
 
-rm -rf _dist
-
-go get github.com/mitchellh/gox
-$GOX -parallel=3 -output="_dist/$BINNAME-{{.OS}}-{{.Arch}}" -osarch="$TARGETS" -tags "$TAGS" -ldflags "$LDFLAGS" ./cmd/
-go mod tidy
+go test -race ./cmd/...
+go test -race ./pkg/...

@@ -10,15 +10,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package api
 
-import "testing"
+import "errors"
 
-func TestNewSHA256(t *testing.T) {
-	t.Parallel()
-
-	got := NewSHA256([]byte("dsdd"))
-	if got != "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5" {
-		t.Error("SHA256 is not correct")
-	}
-}
+var (
+	ErrFileNotFound      = errors.New("file not found")
+	ErrFileMustNotExists = errors.New("file must not exists")
+	ErrFileMustExists    = errors.New("file must exists")
+	ErrSHA256Failed      = errors.New("file SHA256 check failed")
+)

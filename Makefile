@@ -3,18 +3,20 @@ test:
 	rm -rf data-test
 	go fmt ./cmd
 	go mod tidy
-	go test -race ./cmd
+	./scripts/test-pkg.sh
 	golangci-lint run -v
+testIntegration:
+	CONFIG=config_test.yaml go test -tags=integration -race ./pkg/queue
 buildDev:
-	docker build . -t paskalmaksim/file-sync:dev
+	docker build --pull . -t paskalmaksim/file-sync:dev
+push:
 	docker push paskalmaksim/file-sync:dev
 build:
 	docker-compose pull
 	docker-compose build
 run:
 	rm -rf data
-	GOFLAGS="-trimpath" go build -o file-sync ./cmd
-	./file-sync -log.level=DEBUG -log.pretty -redis.enabled -dir.src=data-src
+	go run --race ./cmd -log.level=DEBUG -log.pretty -redis.enabled -dir.src=data-src
 clean:
 	rm -rf file-sync
 	docker-compose down --remove-orphans 

@@ -10,16 +10,19 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package utils_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"testing"
+
+	"github.com/maksim-paskal/file-sync/pkg/utils"
 )
 
-func NewSHA256(data []byte) string {
-	hash := sha256.Sum256(data)
-	hashByte := hash[:]
+func TestNewSHA256(t *testing.T) {
+	t.Parallel()
 
-	return hex.EncodeToString(hashByte)
+	got := utils.NewSHA256([]byte("dsdd"))
+	if got != "701df70cc797a5d18f69fbf8fa538b15c5adcc06e51de80b446d465696d6c3b5" {
+		t.Error("SHA256 is not correct")
+	}
 }
