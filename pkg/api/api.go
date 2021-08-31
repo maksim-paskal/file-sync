@@ -43,9 +43,9 @@ const (
 	MessageTypeDelete = "delete"
 	MessageTypeCopy   = "copy"
 	MessageTypeMove   = "move"
-	defaultFileMode1  = fs.FileMode(0777)
-	defaultFileMode2  = fs.FileMode(0600)
-	defaultFileMode3  = fs.FileMode(0644)
+	defaultFileMode1  = fs.FileMode(0o777)
+	defaultFileMode2  = fs.FileMode(0o600)
+	defaultFileMode3  = fs.FileMode(0o644)
 	maxRetryCount     = 20
 )
 
