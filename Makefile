@@ -5,6 +5,8 @@ test:
 	go mod tidy
 	./scripts/test-pkg.sh
 	golangci-lint run -v
+coverage:
+	go tool cover -html=coverage.out
 testIntegration:
 	CONFIG=config_test.yaml go test -tags=integration -race ./pkg/queue
 build-dev:
