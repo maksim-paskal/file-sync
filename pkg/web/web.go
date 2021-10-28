@@ -51,6 +51,7 @@ func StartServer() {
 				ClientAuth: tls.RequireAndVerifyClientCert,
 				ClientCAs:  roots,
 			},
+			ErrorLog: httpServerLogger(),
 		}
 
 		log.Infof("Start TLS server on %s", server.Addr)
