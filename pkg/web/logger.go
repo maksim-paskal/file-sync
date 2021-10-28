@@ -13,13 +13,15 @@ limitations under the License.
 package web
 
 import (
+	"log"
 	"net/http"
+	"strings"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func logRequestHandler(server string, h http.Handler) http.Handler {
-	logger := log.WithFields(log.Fields{
+	logger := logrus.WithFields(logrus.Fields{
 		"server": server,
 	})
 
@@ -34,4 +36,20 @@ func logRequestHandler(server string, h http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(fn)
+}
+
+type httpServerLoggerAdapter struct{}
+
+func (*httpServerLoggerAdapter) Write(p []byte) (n int, err error) {
+	if message := string(p); strings.Contains(message, "TLS handshake error") {
+		logrus.Debug(message)
+	} else {
+		logrus.Error(message)
+	}
+
+	return 0, nil
+}
+
+func httpServerLogger() *log.Logger {
+	return log.New(&httpServerLoggerAdapter{}, "", 0)
 }
