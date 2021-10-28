@@ -45,15 +45,12 @@ func main() { //nolint: cyclop
 	}
 
 	log.SetLevel(level)
+	log.SetReportCaller(true)
 
 	if !*config.Get().LogPretty {
 		log.SetFormatter(&log.JSONFormatter{
 			TimestampFormat: time.RFC3339Nano,
 		})
-	}
-
-	if log.GetLevel() == log.DebugLevel {
-		log.SetReportCaller(true)
 	}
 
 	if err := config.Load(); err != nil {

@@ -14,6 +14,7 @@ package queue
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"strconv"
 	"sync"
@@ -51,9 +52,22 @@ func Init() error {
 		return nil
 	}
 
-	rdb = redis.NewClient(&redis.Options{
-		Addr: *config.Get().RedisAddress,
-	})
+	redisOptions := redis.Options{
+		Addr:     *config.Get().RedisAddress,
+		Password: *config.Get().RedisPassword,
+	}
+
+	if *config.Get().RedisTLS {
+		redisOptions.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+
+		if *config.Get().RedisTLSInsecure {
+			redisOptions.TLSConfig.InsecureSkipVerify = true
+		}
+	}
+
+	rdb = redis.NewClient(&redisOptions)
 
 	log.Infof("Redis queue started on %s server", *config.Get().RedisAddress)
 

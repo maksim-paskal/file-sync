@@ -40,6 +40,9 @@ type Config struct {
 	SslCA             *string
 	RedisEnabled      *bool
 	RedisAddress      *string
+	RedisPassword     *string
+	RedisTLS          *bool
+	RedisTLSInsecure  *bool
 	ExecuteRedisQueue *bool
 	SentryDSN         *string
 }
@@ -70,6 +73,9 @@ var (
 		SslCA:             flag.String("ssl.serverCA", "ssl/ca.crt", "ssl certificate"),
 		RedisEnabled:      flag.Bool("redis.enabled", false, "use redis"),
 		RedisAddress:      flag.String("redis.address", "127.0.0.1:6379", "redis address"),
+		RedisPassword:     flag.String("redis.password", "", "redis password"),
+		RedisTLS:          flag.Bool("redis.tls", false, "use TLS in redis connection"),
+		RedisTLSInsecure:  flag.Bool("redis.tls.insecure", false, "allow insecure tls connection"),
 		ExecuteRedisQueue: flag.Bool("redis.executeQueue", true, "process redis queue, false in distributed mode"),
 	}
 )
