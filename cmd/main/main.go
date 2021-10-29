@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/certs"
 	"github.com/maksim-paskal/file-sync/pkg/config"
 	"github.com/maksim-paskal/file-sync/pkg/metrics"
 	"github.com/maksim-paskal/file-sync/pkg/queue"
@@ -71,6 +72,10 @@ func main() { //nolint: cyclop
 
 	log.Infof("Starting %s...", config.GetVersion())
 	log.Debug(config.String())
+
+	if err := certs.Init(); err != nil {
+		log.WithError(err).Fatal()
+	}
 
 	err = api.Init()
 	if err != nil {

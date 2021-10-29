@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/certs"
 	"github.com/maksim-paskal/file-sync/pkg/config"
 	"github.com/maksim-paskal/file-sync/pkg/web"
 )
@@ -32,6 +33,10 @@ var ctx = context.Background()
 
 func init() { //nolint: gochecknoinits
 	if err := config.Load(); err != nil {
+		panic(err)
+	}
+
+	if err := certs.Init(); err != nil {
 		panic(err)
 	}
 

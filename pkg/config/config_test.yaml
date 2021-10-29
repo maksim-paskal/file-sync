@@ -1,5 +1,2 @@
 sourcedir: "../../examples"
 destinationdir: "../../data-test"
-sslclientcrt: "../../examples/ssl/client01.crt"
-sslclientkey: "../../examples/ssl/client01.key"
-sslca: "../../examples/ssl/ca.crt"

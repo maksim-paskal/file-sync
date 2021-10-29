@@ -1,10 +1,11 @@
 test:
 	./scripts/validate-license.sh
 	rm -rf data-test
-	go fmt ./cmd
+	go fmt ./cmd/main
 	go mod tidy
 	./scripts/test-pkg.sh
 	golangci-lint run -v
+	rm -rf data-test
 coverage:
 	go tool cover -html=coverage.out
 testIntegration:
@@ -17,7 +18,12 @@ push:
 	docker push paskalmaksim/file-sync:dev
 run:
 	rm -rf data
-	go run --race ./cmd -log.level=DEBUG -log.pretty -redis.enabled -dir.src=data-src
+	go run --race ./cmd/main \
+	-log.level=DEBUG -log.pretty \
+	-redis.enabled \
+	-dir.src=data-src \
+	-ssl.crt=ssl/CA.crt \
+	-ssl.key=ssl/CA.key
 clean:
 	rm -rf file-sync
 	docker-compose down --remove-orphans 
@@ -32,27 +38,24 @@ testDelete:
 redisStart:
 	docker run --name some-redis -p 6379:6379 -d redis
 initSSL:
-	rm -rf ssl
-	mkdir ssl
-	mkdir ssl/db
-	mkdir ssl/db/certs
-	mkdir ssl/db/newcerts
-	touch ssl/db/index.txt
-	echo "01" > ssl/db/serial
-	openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout ssl/server.key -out ssl/server.crt -subj "/C=GB/ST=London/L=London/O=GLOBAL/OU=DEVOPS/CN=*.global"
-	openssl req -new -newkey rsa:2048 -nodes -keyout ssl/ca.key -x509 -days 3650 \
-	-subj "/C=GB/ST=London/L=London/O=GLOBAL/OU=CA/CN=*.global/emailAddress=ca@cluster.global" \
-	-out ssl/ca.crt
-	openssl req -new -newkey rsa:2048 -nodes -keyout ssl/client01.key \
-	-subj "/C=GB/ST=London/L=London/O=GLOBAL/OU=CLIENT/CN=*.global/emailAddress=client@cluster.global" \
-	-out ssl/client01.csr
-	openssl x509 -req -days 3650 -in ssl/client01.csr -CA ssl/ca.crt -CAkey ssl/ca.key -set_serial 01 -out ssl/client01.crt
-	openssl verify -verbose -CAfile ssl/ca.crt ssl/client01.crt
-testSSL:
-	curl http://localhost:9336/api/queue
+	rm -rf ./ssl/
+	mkdir -p ./ssl/
 
-	curl -k --key ssl/client01.key --cert ssl/client01.crt https://localhost:9335/api/sync
-	curl -k https://localhost:9335/api/sync
+	go run ./cmd/gencerts -cert.path=ssl
+sslSSLCertificates:
+	openssl rsa -in ./ssl/CA.key -check -noout
+	openssl rsa -in ./ssl/test.key -check -noout
+	openssl verify -CAfile ./ssl/CA.crt ./ssl/test.crt
+
+	openssl x509 -in ./ssl/test.crt -text
+
+	openssl x509 -pubkey -in ./ssl/CA.crt -noout | openssl md5
+	openssl pkey -pubout -in ./ssl/CA.key | openssl md5
+
+	openssl x509 -pubkey -in ./ssl/test.crt -noout | openssl md5
+	openssl pkey -pubout -in ./ssl/test.key | openssl md5
+testSSL:
+	curl -k --key ssl/test.key --cert ssl/test.crt https://localhost:9335/api/healthz
 upgrade:
 	go get -v -u all
 	go mod tidy

@@ -33,11 +33,8 @@ type Config struct {
 	DestinationDir    *string
 	SyncAddress       *string
 	SyncTimeout       *time.Duration
-	SslClientKey      *string
-	SslClientCrt      *string
-	SslServerKey      *string
-	SslServerCrt      *string
-	SslCA             *string
+	SSLCrt            *string
+	SSLKey            *string
 	RedisEnabled      *bool
 	RedisAddress      *string
 	RedisPassword     *string
@@ -54,23 +51,19 @@ const (
 var (
 	gitVersion = "dev"
 	appConfig  = Config{
-		ConfigPath:     flag.String("config", getEnvDefault("CONFIG", "config.yaml"), "config"),
-		LogPretty:      flag.Bool("log.pretty", false, "logging level"),
-		LogLevel:       flag.String("log.level", "INFO", "logging level"),
-		HTTPAddress:    flag.String("http.address", ":9336", "address"),
-		HTTPSAddress:   flag.String("https.address", ":9335", "address"),
-		MetricsAddress: flag.String("metrics.address", ":9334", "address"),
-		SourceDir:      flag.String("dir.src", "data", "folder"),
-		DestinationDir: flag.String("dir.dest", "data", "folder"),
-		SyncAddress:    flag.String("sync.address", "localhost:9335", "destination server"),
-		SyncTimeout:    flag.Duration("sync.timeout", syncTimeoutDefault, "destination server"),
-		SentryDSN:      flag.String("sentry.dsn", "", "Sentry DSN"),
-		// ssl config
-		SslClientKey:      flag.String("ssl.clientKey", "ssl/client01.key", "ssl certificate"),
-		SslClientCrt:      flag.String("ssl.clientCrt", "ssl/client01.crt", "ssl certificate"),
-		SslServerKey:      flag.String("ssl.serverKey", "ssl/server.key", "ssl certificate"),
-		SslServerCrt:      flag.String("ssl.serverCrt", "ssl/server.crt", "ssl certificate"),
-		SslCA:             flag.String("ssl.serverCA", "ssl/ca.crt", "ssl certificate"),
+		ConfigPath:        flag.String("config", getEnvDefault("CONFIG", "config.yaml"), "config"),
+		LogPretty:         flag.Bool("log.pretty", false, "logging level"),
+		LogLevel:          flag.String("log.level", "INFO", "logging level"),
+		HTTPAddress:       flag.String("http.address", ":9336", "address"),
+		HTTPSAddress:      flag.String("https.address", ":9335", "address"),
+		MetricsAddress:    flag.String("metrics.address", ":9334", "address"),
+		SourceDir:         flag.String("dir.src", "data", "folder"),
+		DestinationDir:    flag.String("dir.dest", "data", "folder"),
+		SyncAddress:       flag.String("sync.address", "localhost:9335", "destination server"),
+		SyncTimeout:       flag.Duration("sync.timeout", syncTimeoutDefault, "destination server"),
+		SentryDSN:         flag.String("sentry.dsn", os.Getenv("SENTRY_DSN"), "Sentry DSN"),
+		SSLCrt:            flag.String("ssl.crt", "", "path to CA cert"),
+		SSLKey:            flag.String("ssl.key", "", "path to CA key"),
 		RedisEnabled:      flag.Bool("redis.enabled", false, "use redis"),
 		RedisAddress:      flag.String("redis.address", "127.0.0.1:6379", "redis address"),
 		RedisPassword:     flag.String("redis.password", "", "redis password"),
