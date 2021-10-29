@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/certs"
 	"github.com/maksim-paskal/file-sync/pkg/config"
 	"github.com/maksim-paskal/file-sync/pkg/metrics"
 	"github.com/maksim-paskal/file-sync/pkg/queue"
@@ -31,32 +32,34 @@ import (
 
 func StartServer() {
 	go func() {
-		caCertPEM, err := ioutil.ReadFile(*config.Get().SslCA)
+		_, serverCertBytes, _, serverKeyBytes, err := certs.NewCertificate("file-sync", certs.CertValidityMax)
 		if err != nil {
-			log.WithError(err).Fatal("can not load ca")
+			log.WithError(err).Fatal("failed to NewCertificate")
 		}
 
-		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM(caCertPEM)
-
-		if !ok {
-			log.Fatal("failed to parse root certificate")
+		cert, err := tls.X509KeyPair(serverCertBytes, serverKeyBytes)
+		if err != nil {
+			log.WithError(err).Fatal("failed to NewCertificate")
 		}
+
+		caCertPool := x509.NewCertPool()
+		caCertPool.AddCert(certs.GetLoadedRootCert())
 
 		server := &http.Server{
 			Addr:    *config.Get().HTTPSAddress,
 			Handler: logRequestHandler("sync", GetHTTPSRouter()),
 			TLSConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-				ClientAuth: tls.RequireAndVerifyClientCert,
-				ClientCAs:  roots,
+				MinVersion:   tls.VersionTLS12,
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+				ClientCAs:    caCertPool,
+				Certificates: []tls.Certificate{cert},
 			},
 			ErrorLog: httpServerLogger(),
 		}
 
 		log.Infof("Start TLS server on %s", server.Addr)
 
-		err = server.ListenAndServeTLS(*config.Get().SslServerCrt, *config.Get().SslServerKey)
+		err = server.ListenAndServeTLS("", "")
 		if err != nil {
 			log.WithError(err).Fatal()
 		}
@@ -371,6 +374,7 @@ func GetHTTPRouter() *http.ServeMux {
 func GetHTTPSRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/sync", handlerSync)
+	mux.HandleFunc("/api/healthz", handlerHealthz)
 
 	return mux
 }

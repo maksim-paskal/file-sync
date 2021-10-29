@@ -25,7 +25,7 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if want := "../../examples/ssl/client01.crt"; *config.Get().SslClientCrt != want {
-		t.Fatalf("want=%s got=%s", want, *config.Get().SslClientCrt)
+	if want := "../../data-test"; *config.Get().DestinationDir != want {
+		t.Fatalf("want=%s got=%s", want, *config.Get().SSLCrt)
 	}
 }

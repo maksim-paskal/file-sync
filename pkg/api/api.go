@@ -30,6 +30,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/maksim-paskal/file-sync/pkg/certs"
 	"github.com/maksim-paskal/file-sync/pkg/config"
 	"github.com/maksim-paskal/file-sync/pkg/metrics"
 	"github.com/maksim-paskal/file-sync/pkg/utils"
@@ -72,20 +73,18 @@ type Response struct {
 var client *http.Client
 
 func Init() error {
-	// Load client cert
-	cert, err := tls.LoadX509KeyPair(*config.Get().SslClientCrt, *config.Get().SslClientKey)
+	_, serverCertBytes, _, serverKeyBytes, err := certs.NewCertificate("file-sync", certs.CertValidityMax)
 	if err != nil {
-		return errors.Wrap(err, "error in tls.LoadX509KeyPair")
+		return errors.Wrap(err, "failed to NewCertificate")
 	}
 
-	// Load CA cert
-	caCert, err := ioutil.ReadFile(*config.Get().SslCA)
+	cert, err := tls.X509KeyPair(serverCertBytes, serverKeyBytes)
 	if err != nil {
-		return errors.Wrap(err, "error in ioutil.ReadFile")
+		return errors.Wrap(err, "failed to NewCertificate")
 	}
 
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AddCert(certs.GetLoadedRootCert())
 
 	// Setup HTTPS client
 	tlsConfig := &tls.Config{

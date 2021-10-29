@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/maksim-paskal/file-sync/pkg/api"
+	"github.com/maksim-paskal/file-sync/pkg/certs"
 	"github.com/maksim-paskal/file-sync/pkg/config"
 )
 
@@ -30,6 +31,10 @@ func TestGetMessageFromValue(t *testing.T) {
 	t.Parallel()
 
 	if err := config.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := certs.Init(); err != nil {
 		t.Fatal(err)
 	}
 
