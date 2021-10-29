@@ -9,10 +9,12 @@ coverage:
 	go tool cover -html=coverage.out
 testIntegration:
 	CONFIG=config_test.yaml go test -tags=integration -race ./pkg/queue
-build-dev:
-	goreleaser build --rm-dist --skip-validate
+build:
+	goreleaser build --rm-dist --snapshot --skip-validate
 	mv ./dist/file-sync_linux_amd64/file-sync ./file-sync
 	docker build --pull . -t paskalmaksim/file-sync:dev
+push:
+	docker push paskalmaksim/file-sync:dev
 run:
 	rm -rf data
 	go run --race ./cmd -log.level=DEBUG -log.pretty -redis.enabled -dir.src=data-src
@@ -20,8 +22,7 @@ clean:
 	rm -rf file-sync
 	docker-compose down --remove-orphans 
 runDocker:
-	goreleaser build --rm-dist --skip-validate
-	mv ./dist/file-sync_linux_amd64/file-sync ./file-sync
+	make build
 	docker-compose down --remove-orphans && docker-compose up
 testPut:
 	curl --data-binary '@examples/put.json' http://localhost:9335/api/endpoint
