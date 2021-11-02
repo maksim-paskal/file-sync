@@ -1,18 +1,19 @@
+{{ if .Values.redis.create }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: file-sync-redis
+  name: {{ .Release.Name }}-redis
   labels:
-    app: file-sync-redis
+    app: {{ .Release.Name }}-redis
 spec:
   selector:
     matchLabels:
-      app: file-sync-redis
+      app: {{ .Release.Name }}-redis
   replicas: 1
   template:
     metadata:
       labels:
-        app: file-sync-redis
+        app: {{ .Release.Name }}-redis
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     spec:
@@ -30,13 +31,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: file-sync-redis
+  name: {{ .Release.Name }}-redis
   labels:
-    app: file-sync-redis
+    app: {{ .Release.Name }}-redis
 spec:
   type: ClusterIP
   ports:
   - port: 6379
     protocol: TCP
   selector:
-    app: file-sync-redis
+    app: {{ .Release.Name }}-redis
+{{ end }}
