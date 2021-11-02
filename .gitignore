@@ -2,5 +2,6 @@
 /data*
 /ssl*
 dist
-/deploy-*
 coverage.out
+deploy-*
+/values.yaml
