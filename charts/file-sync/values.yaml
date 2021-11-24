@@ -1,5 +1,5 @@
-image: paskalmaksim/file-sync:latest
-imagePullPolicy: Always
+image: paskalmaksim/file-sync:v0.1.9
+imagePullPolicy: IfNotPresent
 
 dataVolume:
   emptyDir: {}
@@ -30,6 +30,7 @@ sync:
   address: 127.0.0.1:19335
 
 # test certificates - please generate new certificate for production usage
+# make initSSL
 certs:
   CA.crt: |
     -----BEGIN CERTIFICATE-----
