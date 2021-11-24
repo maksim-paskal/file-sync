@@ -9,7 +9,7 @@ test:
 coverage:
 	go tool cover -html=coverage.out
 testIntegration:
-	CONFIG=config_test.yaml go test -tags=integration -race ./pkg/queue
+	CONFIG=config_test.yaml go test -v -count=1 -tags=integration -race ./pkg/queue
 build:
 	goreleaser build --rm-dist --snapshot --skip-validate
 	mv ./dist/file-sync_linux_amd64/file-sync ./file-sync
@@ -64,5 +64,5 @@ bulk:
 heap:
 	go tool pprof -http=127.0.0.1:8080 http://localhost:9336/debug/pprof/heap
 testChart:
-	helm lint --strict ./chart
-	helm template ./chart | kubectl apply --dry-run=client -f -
+	helm lint --strict ./charts/file-sync
+	helm template ./charts/file-sync | kubectl apply --dry-run=client -f -

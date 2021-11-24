@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 /*
@@ -16,25 +17,27 @@ package queue_test
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"io/ioutil"
 	"strconv"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/maksim-paskal/file-sync/pkg/api"
 	"github.com/maksim-paskal/file-sync/pkg/config"
 	"github.com/maksim-paskal/file-sync/pkg/queue"
-	log "github.com/sirupsen/logrus"
 )
 
 var ctx = context.Background()
 
-func init() {
+func init() { //nolint:gochecknoinits
 	if err := config.Load(); err != nil {
 		panic(err)
 	}
 
 	if err := queue.Init(); err != nil {
+		panic(err)
+	}
+
+	if err := queue.Flush(); err != nil {
 		panic(err)
 	}
 }
@@ -45,30 +48,43 @@ func TestAdd(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	message := api.Message{
-		Type: uuid.NewString(),
-	}
+	messageType := uuid.NewString()
 
 	_, err := queue.Info()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	queueSize := 100
+	const queueSize = 1000
+
 	queueFound := 0
+	lastID := -1
 
 	queue.OnNewValue = func(m api.Message) {
-		log.Info(m.ID)
+		t.Logf("OnNewValue=%s", m.ID)
 
-		if m.Type != message.Type {
-			log.Fatal("type mismatch")
+		currentID, err := strconv.Atoi(m.ID)
+		if err != nil {
+			t.Fatalf("%v,%s", err, m.ID)
+			cancel()
+			queue.GracefullShutdown()
+		}
+
+		if lastID >= 0 && (currentID-lastID) != 1 {
+			t.Errorf("wrong order currentID=%d, lastID=%d", currentID, lastID)
+			cancel()
+			queue.GracefullShutdown()
+		}
+
+		lastID = currentID
+
+		if m.Type != messageType {
+			t.Errorf("type mismatch m.Type=%s,messageType=%s", m.Type, messageType)
+			cancel()
+			queue.GracefullShutdown()
 		}
 
 		queueFound++
-
-		log.Info(queueFound)
-
-		_ = ioutil.WriteFile("/tmp/eee", []byte(strconv.Itoa(queueFound)), 0777)
 
 		if queueFound == queueSize {
 			cancel()
@@ -76,12 +92,15 @@ func TestAdd(t *testing.T) {
 	}
 
 	for i := 0; i < queueSize; i++ {
-		id, err := queue.Add(message)
+		message := api.Message{
+			ID:   strconv.Itoa(i),
+			Type: messageType,
+		}
+
+		_, err := queue.Add(message)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		t.Log(id)
 	}
 
 	<-ctx.Done()

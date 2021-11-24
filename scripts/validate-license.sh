@@ -23,6 +23,7 @@ find_files() {
       -o -wholename '*testdata*' \
       -o -wholename '*third_party*' \
       -o -wholename '*node_modules*' \
+      -o -wholename '*deploy-*.sh' \
     \) -prune \
   \) \
   \( -name '*.go' -o -name '*.sh' -o -name 'LICENSE' \)

@@ -1,7 +1,12 @@
 image: paskalmaksim/file-sync:latest
 imagePullPolicy: Always
 
-claimName: pvc-data
+dataVolume:
+  emptyDir: {}
+  # persistentVolumeClaim:
+  #   claimName: pvc-data
+
+replicas: 2
 
 userUID: 82
 

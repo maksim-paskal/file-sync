@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/maksim-paskal/file-sync/pkg/certs"
 	"github.com/maksim-paskal/file-sync/pkg/config"
@@ -47,13 +48,12 @@ const (
 	defaultFileMode1  = fs.FileMode(0o777)
 	defaultFileMode2  = fs.FileMode(0o600)
 	defaultFileMode3  = fs.FileMode(0o644)
-	maxRetryCount     = 20
+	retryMaxCount     = 3
+	retryDuration     = 5 * time.Second
 )
 
 type Message struct {
 	ID                string `json:"id"`
-	RetryCount        int    `json:"retryCount"`
-	RetryLastError    string `json:"retryLastError"`
 	Type              string `json:"type"`
 	FileName          string `json:"fileName"`
 	NewFileName       string `json:"newFileName"`
@@ -61,6 +61,10 @@ type Message struct {
 	FileContent       string `json:"fileContent"`
 	FileContentBase64 string `json:"fileContentBase64"`
 	SHA256            string `json:"sha256"`
+}
+
+func (m *Message) String() string {
+	return fmt.Sprintf("type=%s,filename=%s", m.Type, m.FileName)
 }
 
 type Response struct {
@@ -141,17 +145,6 @@ func makeMove(message Message) error {
 	message.NewFileName = path.Join(*config.Get().DestinationDir, message.NewFileName)
 
 	if _, err := os.Stat(message.FileName); os.IsNotExist(err) {
-		// if file not found and reach maxRetryCount exit with success, logs warning
-		if message.RetryCount > maxRetryCount {
-			metrics.QueueMaxRetryCountCounter.WithLabelValues(MessageTypeMove).Inc()
-			log.
-				WithError(ErrFileNotFound).
-				WithField("message", message).
-				Warn()
-
-			return nil
-		}
-
 		return errors.Wrapf(err, "%s not exists", message.FileName)
 	}
 
@@ -176,17 +169,6 @@ func makeDelete(message Message) error {
 	message.FileName = path.Join(*config.Get().DestinationDir, message.FileName)
 
 	if _, err := os.Stat(message.FileName); os.IsNotExist(err) {
-		// if file not found and reach maxRetryCount exit with success, logs warning
-		if message.RetryCount > maxRetryCount {
-			metrics.QueueMaxRetryCountCounter.WithLabelValues(MessageTypeDelete).Inc()
-			log.
-				WithError(ErrFileNotFound).
-				WithField("message", message).
-				Warn()
-
-			return nil
-		}
-
 		return errors.Wrapf(err, "%s not exists", message.FileName)
 	}
 
@@ -218,7 +200,7 @@ func makeSave(message Message) error { //nolint:cyclop
 			if message.Force {
 				log.
 					WithError(ErrFileMustNotExists).
-					WithField("message", message).
+					WithField("message", message.String()).
 					Warn()
 			} else {
 				return ErrFileMustNotExists
@@ -229,7 +211,7 @@ func makeSave(message Message) error { //nolint:cyclop
 			if message.Force {
 				log.
 					WithError(ErrFileMustExists).
-					WithField("message", message).
+					WithField("message", message.String()).
 					Warn()
 			} else {
 				return ErrFileMustExists
@@ -274,7 +256,7 @@ func makeSave(message Message) error { //nolint:cyclop
 		if message.SHA256 != utils.NewSHA256(data) {
 			log.
 				WithError(ErrSHA256Failed).
-				WithField("message", message).
+				WithField("message", message.String()).
 				Warn()
 		}
 	}
@@ -284,51 +266,33 @@ func makeSave(message Message) error { //nolint:cyclop
 	return nil
 }
 
-func Send(message Message) error {
-	ctx := context.Background()
+func SendWithRetry(message Message) error {
+	var err error
 
-	jsonStr, err := json.Marshal(message)
-	if err != nil {
-		return errors.Wrap(err, "error in json.Marshal")
-	}
+	var (
+		results  = Response{}
+		tryCount = 0
+	)
 
-	url := fmt.Sprintf("https://%s/api/sync", *config.Get().SyncAddress)
+	for {
+		results, err = Send(message)
+		if err == nil {
+			break
+		}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return errors.Wrap(err, "error in http.NewRequestWithContext")
-	}
+		log.WithField("message", message.String()).WithError(err).Error()
+		metrics.SendCommunicationErrors.Inc()
 
-	req.Header.Set("Content-Type", "application/json")
+		// retry if send operation has communication errors
+		tryCount++
+		if tryCount >= retryMaxCount {
+			metrics.QueueMaxRetryCountCounter.WithLabelValues(message.Type).Inc()
+			log.WithField("message", message.String()).WithError(err).Warn("reachout try count")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
+			break
+		}
 
-	if resp == nil {
-		return errors.Wrap(err, "error in client.Do")
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return errors.New("status != 200")
-	}
-
-	// Dump response
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Wrap(err, "error in ioutil.ReadAll")
-	}
-
-	log.Debugf("url=%s,result=%s", url, string(data))
-
-	results := Response{}
-
-	err = json.Unmarshal(data, &results)
-	if err != nil {
-		return errors.Wrap(err, "error in json.Unmarshal")
+		time.Sleep(retryDuration)
 	}
 
 	if results.StatusCode != http.StatusOK {
@@ -336,6 +300,58 @@ func Send(message Message) error {
 	}
 
 	return nil
+}
+
+func Send(message Message) (Response, error) {
+	ctx := context.Background()
+
+	results := Response{}
+
+	jsonStr, err := json.Marshal(message)
+	if err != nil {
+		return results, errors.Wrap(err, "error in json.Marshal")
+	}
+
+	url := fmt.Sprintf("https://%s/api/sync", *config.Get().SyncAddress)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return results, errors.Wrap(err, "error in http.NewRequestWithContext")
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return results, errors.Wrap(err, "error in client.Do")
+	}
+
+	if resp == nil {
+		return results, errors.Wrap(err, "response is empty")
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return results, errors.New("status != 200")
+	}
+
+	// Dump response
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return results, errors.Wrap(err, "error in ioutil.ReadAll")
+	}
+
+	resp.Body.Close()
+
+	log.Debugf("url=%s,result=%s", url, string(data))
+
+	err = json.Unmarshal(data, &results)
+	if err != nil {
+		return results, errors.Wrap(err, "error in json.Unmarshal")
+	}
+
+	return results, nil
 }
 
 func GetMessageFromValue(value string) (Message, error) {

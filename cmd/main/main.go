@@ -30,7 +30,7 @@ import (
 
 var showVersion = flag.Bool("version", false, "get version")
 
-func main() { //nolint: cyclop
+func main() {
 	ctx := context.Background()
 
 	flag.Parse()
@@ -87,31 +87,15 @@ func main() { //nolint: cyclop
 		log.WithError(err).Fatal()
 	}
 
-	if *config.Get().RedisEnabled {
-		go queue.ScheduleMetrics()
-	}
-
 	// for redis
 	queue.OnNewValue = func(message api.Message) {
-		err := api.Send(message)
+		err := api.SendWithRetry(message)
 		if err != nil {
 			log.
 				WithError(err).
-				WithField("message", message).
+				WithField("message", message.String()).
 				Error("error in api.send")
-			metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
-
-			message.RetryCount++
-			message.RetryLastError = err.Error()
-
-			_, err = queue.Add(message)
-
-			if err != nil {
-				log.
-					WithError(err).
-					WithField("message", message).
-					Error("error in queue.Add")
-			}
+			metrics.SendErrorCounter.WithLabelValues(message.Type).Inc()
 		}
 	}
 

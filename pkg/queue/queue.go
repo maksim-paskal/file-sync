@@ -16,7 +16,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"strconv"
 	"sync"
 	"time"
 
@@ -24,26 +23,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/maksim-paskal/file-sync/pkg/api"
 	"github.com/maksim-paskal/file-sync/pkg/config"
-	"github.com/maksim-paskal/file-sync/pkg/metrics"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	key                = "file-sync"
-	queueTimeout       = time.Second
-	queueSize          = 10
-	retryTimeRatio     = 2
-	decimialRateNumber = 10
-	maxListSize        = 100
-	schedulePeriod     = 5 * time.Second
-)
+const key = "file-sync"
 
 var (
 	rdb        *redis.Client
 	OnNewValue func(api.Message)
 	mutex      sync.Mutex
 	ctx        = context.Background()
+	mustStop   = false
 )
 
 func Init() error {
@@ -82,50 +73,36 @@ func Flush() error {
 	return rdb.FlushDB(ctx).Err()
 }
 
+func GracefullShutdown() {
+	mustStop = true
+}
+
 func executeRedisQueue(ctx context.Context) {
 	for {
-		time.Sleep(queueTimeout)
+		if mustStop {
+			break
+		}
 
-		timeNow := strconv.FormatInt(time.Now().Unix(), decimialRateNumber)
-
-		results, err := rdb.ZRangeByScore(ctx, key, &redis.ZRangeBy{
-			Min:   "0",
-			Max:   timeNow,
-			Count: queueSize,
-		}).Result()
+		result, err := rdb.BLPop(ctx, 0*time.Second, key).Result()
 		if err != nil {
-			log.WithError(err).Error("error in queue.rdb.ZRangeByScore")
+			log.WithError(err).Error("error in queue.rdb.BLPop")
 
 			continue
 		}
 
-		if len(results) == 0 {
-			continue
-		}
+		message := api.Message{}
 
-		_, err = rdb.ZRem(ctx, key, results).Result()
+		err = json.Unmarshal([]byte(result[1]), &message)
 		if err != nil {
-			log.WithError(err).Error("error in queue.rdb.ZRem")
+			log.
+				WithError(err).
+				WithField("message", message.String()).
+				Error("error in json.Unmarshal")
 
 			continue
 		}
 
-		for _, result := range results {
-			message := api.Message{}
-
-			err = json.Unmarshal([]byte(result), &message)
-			if err != nil {
-				log.
-					WithError(err).
-					WithField("message", message).
-					Error("error in json.Unmarshal")
-
-				continue
-			}
-
-			// run command in same order
-			onNewValue(message)
-		}
+		onNewValue(message)
 	}
 }
 
@@ -138,12 +115,6 @@ func onNewValue(message api.Message) {
 	}
 }
 
-func delayTimeInSeconds(seconds int) int64 {
-	delay := time.Duration(seconds) * time.Second
-
-	return time.Now().Add(delay).Unix()
-}
-
 func Add(value api.Message) (string, error) {
 	if len(value.ID) == 0 {
 		value.ID = uuid.NewString()
@@ -154,69 +125,22 @@ func Add(value api.Message) (string, error) {
 		return value.ID, errors.Wrap(err, "error in json.Marshal")
 	}
 
-	retryTime := delayTimeInSeconds(value.RetryCount * retryTimeRatio)
+	push := rdb.RPush(ctx, key, messageJSON)
 
-	_, err = rdb.ZAdd(ctx, key, &redis.Z{
-		Score:  float64(retryTime),
-		Member: messageJSON,
-	}).Result()
+	_, err = push.Result()
+	if err != nil {
+		return value.ID, errors.Wrap(err, "error push.Result")
+	}
 
 	return value.ID, err
 }
 
 type ListResult struct {
-	ID         string
-	File       string
-	Type       string
-	RetryCount int
-	Error      string
-}
-
-func List() ([]ListResult, error) {
-	results, err := rdb.ZRangeByScore(ctx, key, &redis.ZRangeBy{
-		Min:   "0",
-		Max:   "+inf",
-		Count: maxListSize,
-	}).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	listMessages := make([]ListResult, 0)
-
-	for _, result := range results {
-		message := api.Message{}
-
-		err = json.Unmarshal([]byte(result), &message)
-		if err != nil {
-			return nil, err
-		}
-
-		listMessages = append(listMessages, ListResult{
-			ID:         message.ID,
-			File:       message.FileName,
-			Type:       message.Type,
-			RetryCount: message.RetryCount,
-			Error:      message.RetryLastError,
-		})
-	}
-
-	return listMessages, nil
+	ID   string
+	File string
+	Type string
 }
 
 func Info() (string, error) {
 	return rdb.Info(ctx).Result()
-}
-
-// Shedule collecting metrics.
-func ScheduleMetrics() {
-	for {
-		queueLen, err := List()
-		if err != nil {
-			log.WithError(err).Error()
-		}
-
-		metrics.QueueSize.Set(float64(len(queueLen)))
-		time.Sleep(schedulePeriod)
-	}
 }
