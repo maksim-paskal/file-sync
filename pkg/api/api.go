@@ -351,6 +351,8 @@ func Send(message Message) (Response, error) {
 		return results, errors.Wrap(err, "error in json.Unmarshal")
 	}
 
+	log.Infof("type=%s,file=%s", results.Type, results.FileName)
+
 	return results, nil
 }
 
