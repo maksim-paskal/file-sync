@@ -1,6 +1,0 @@
-/file-sync
-/data*
-/ssl*
-dist
-coverage.out
-deploy-*
