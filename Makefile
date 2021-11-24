@@ -42,6 +42,7 @@ initSSL:
 	mkdir -p ./ssl/
 
 	go run ./cmd/gencerts -cert.path=ssl
+	kubectl create configmap ssl --dry-run=client -o yaml --from-file ssl/CA.crt --from-file ssl/CA.key
 sslSSLCertificates:
 	openssl rsa -in ./ssl/CA.key -check -noout
 	openssl rsa -in ./ssl/test.key -check -noout

@@ -20,6 +20,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/maksim-paskal/file-sync/pkg/metrics"
 )
@@ -41,6 +42,8 @@ func TestMetricsInc(t *testing.T) {
 
 func TestMetricsHandler(t *testing.T) {
 	t.Parallel()
+
+	time.Sleep(time.Second)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL, nil)
 	if err != nil {
