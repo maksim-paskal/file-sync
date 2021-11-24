@@ -32,13 +32,6 @@ var (
 			Help:      "The current health status of the server (1 = UP, 0 = DOWN).",
 		},
 	)
-	QueueSize = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace: moduleName,
-			Name:      "queue_size",
-			Help:      "Current queue size",
-		},
-	)
 	QueueRequestCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: moduleName,
@@ -55,6 +48,14 @@ var (
 		},
 		[]string{"type"}, // labels
 	)
+	SendErrorCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: moduleName,
+			Name:      "send_error_total",
+			Help:      "Number of send errors",
+		},
+		[]string{"type"}, // labels
+	)
 	QueueMaxRetryCountCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: moduleName,
@@ -62,6 +63,13 @@ var (
 			Help:      "Number of task deleted by max_retry count",
 		},
 		[]string{"type"}, // labels
+	)
+	SendCommunicationErrors = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: moduleName,
+			Name:      "send_communication_errors_total",
+			Help:      "Number communication errors",
+		},
 	)
 )
 

@@ -36,7 +36,6 @@ func TestMetricsInc(t *testing.T) {
 	metrics.Up.Set(1)
 	metrics.QueueErrorCounter.WithLabelValues("test").Inc()
 	metrics.QueueRequestCounter.WithLabelValues("test").Inc()
-	metrics.QueueSize.Set(10)
 	metrics.QueueMaxRetryCountCounter.WithLabelValues("test").Inc()
 }
 

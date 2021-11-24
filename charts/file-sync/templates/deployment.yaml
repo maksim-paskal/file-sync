@@ -6,7 +6,7 @@ spec:
   selector:
     matchLabels:
       app: {{ .Release.Name }}
-  replicas: 2
+  replicas: {{ .Values.replicas }}
   template:
     metadata:
       labels:
@@ -46,8 +46,7 @@ spec:
         configMap:
           name: {{ .Release.Name }}-certs
       - name: data
-        persistentVolumeClaim:
-          claimName: {{ .Values.claimName }}
+{{ toYaml .Values.dataVolume | indent 8 }}
       containers:
       - name: {{ .Release.Name }}
         image: {{ .Values.image }}

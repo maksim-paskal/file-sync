@@ -106,7 +106,7 @@ func handlerSync(w http.ResponseWriter, r *http.Request) {
 		log.
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message).
+			WithField("message", message.String()).
 			Error("error in ioutil.ReadAll")
 	}
 
@@ -115,7 +115,7 @@ func handlerSync(w http.ResponseWriter, r *http.Request) {
 		log.
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message).
+			WithField("message", message.String()).
 			Error("error in json.Unmarshal")
 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -126,7 +126,7 @@ func handlerSync(w http.ResponseWriter, r *http.Request) {
 	if log.GetLevel() <= log.DebugLevel {
 		log.
 			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message).
+			WithField("message", message.String()).
 			Debug()
 	}
 
@@ -136,7 +136,7 @@ func handlerSync(w http.ResponseWriter, r *http.Request) {
 		log.
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message).
+			WithField("message", message.String()).
 			Error("error in web.api.processMessage")
 	}
 
@@ -210,7 +210,7 @@ func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 		log.
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message).
+			WithField("message", message.String()).
 			Error("error in web.api.getMessageFromValue")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
@@ -221,7 +221,7 @@ func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 	if log.GetLevel() <= log.DebugLevel {
 		log.
 			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message).
+			WithField("message", message.String()).
 			Debug()
 	}
 
@@ -233,7 +233,7 @@ func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 			log.
 				WithError(err).
 				WithFields(logrushooksentry.AddRequest(r)).
-				WithField("message", message).
+				WithField("message", message.String()).
 				Error("error in web.queue.add")
 			metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
 
@@ -243,12 +243,12 @@ func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 		resultText = id
 	} else {
 		go func() {
-			err := api.Send(message)
+			err := api.SendWithRetry(message)
 			if err != nil {
 				log.
 					WithError(err).
 					WithFields(logrushooksentry.AddRequest(r)).
-					WithField("message", message).
+					WithField("message", message.String()).
 					Error("error in web.api.send")
 				metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
 
@@ -264,7 +264,7 @@ func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 		log.
 			WithError(err).
 			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message).
+			WithField("message", message.String()).
 			Error("error in w.Write")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -301,38 +301,6 @@ func handlerQueueInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlerQueueList(w http.ResponseWriter, r *http.Request) {
-	list, err := queue.List()
-	if err != nil {
-		log.
-			WithError(err).
-			WithFields(logrushooksentry.AddRequest(r)).
-			Error("error in queue.List")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
-
-	listJSON, err := json.MarshalIndent(list, "", " ")
-	if err != nil {
-		log.
-			WithError(err).
-			WithFields(logrushooksentry.AddRequest(r)).
-			Error("error in json.Marshal")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
-
-	if _, err := w.Write(listJSON); err != nil {
-		log.
-			WithError(err).
-			WithFields(logrushooksentry.AddRequest(r)).
-			Error("error in w.Write")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
 func handlerQueueFlush(w http.ResponseWriter, r *http.Request) {
 	err := queue.Flush()
 	if err != nil {
@@ -358,7 +326,6 @@ func GetHTTPRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/queue", handlerQueue)
 	mux.HandleFunc("/api/queue/info", handlerQueueInfo)
-	mux.HandleFunc("/api/queue/list", handlerQueueList)
 	mux.HandleFunc("/api/queue/flush", handlerQueueFlush)
 	mux.HandleFunc("/api/healthz", handlerHealthz)
 

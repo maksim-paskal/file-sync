@@ -12,3 +12,4 @@ linters:
   - exhaustivestruct
   # https://github.com/tomarrell/wrapcheck/issues/8
   - wrapcheck
+  - varnamelen

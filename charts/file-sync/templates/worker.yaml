@@ -46,8 +46,7 @@ spec:
         configMap:
           name: {{ .Release.Name }}-certs
       - name: data
-        persistentVolumeClaim:
-          claimName: {{ .Values.claimName }}
+{{ toYaml .Values.dataVolume | indent 8 }}
       containers:
       - name: {{ .Release.Name }}-worker
         image: {{ .Values.image }}
