@@ -67,3 +67,22 @@ heap:
 testChart:
 	helm lint --strict ./charts/file-sync
 	helm template ./charts/file-sync | kubectl apply --dry-run=client -f -
+≈-index:
+	rm -rf .cr-index
+	mkdir .cr-index
+	cr index \
+	--owner maksim-paskal \
+	--git-repo file-sync \
+	--release-name-template "helm-chart-{{ .Version }}" \
+	--charts-repo https://maksim-paskal.github.io/file-sync \
+	--push \
+	--token $(CR_TOKEN)
+chart-upload:
+	rm -rf .cr-release-packages
+	cr package ./charts/file-sync
+	cr upload \
+	--owner maksim-paskal \
+	--git-repo file-sync \
+	--commit "`git rev-parse HEAD`" \
+	--release-name-template "helm-chart-{{ .Version }}" \
+	--token $(CR_TOKEN)
