@@ -15,3 +15,11 @@
 - -ssl.crt=/certs/CA.crt
 - -ssl.key=/certs/CA.key
 {{- end -}}
+
+{{- define "data-volume" -}}
+{{ if .Values.dataVolume.enabled }}
+{{ toYaml .Values.dataVolume.spec}}
+{{ else }}
+emptyDir: {}
+{{ end }}
+{{- end -}}

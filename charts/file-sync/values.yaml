@@ -2,9 +2,12 @@ image: paskalmaksim/file-sync:v0.1.9
 imagePullPolicy: IfNotPresent
 
 dataVolume:
-  emptyDir: {}
-  # persistentVolumeClaim:
-  #   claimName: pvc-data
+  ## If false, use emptyDir
+  enabled: false
+
+  spec:
+    persistentVolumeClaim:
+      claimName: pvc-data
 
 replicas: 2
 

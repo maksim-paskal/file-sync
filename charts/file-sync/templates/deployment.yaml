@@ -46,7 +46,7 @@ spec:
         configMap:
           name: {{ .Release.Name }}-certs
       - name: data
-{{ toYaml .Values.dataVolume | indent 8 }}
+        {{ include "data-volume" . | nindent 8 }}
       containers:
       - name: {{ .Release.Name }}
         image: {{ .Values.image }}
