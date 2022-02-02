@@ -118,7 +118,12 @@ func loadCAFromFiles() (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 		return nil, nil, nil, errors.Wrap(err, "can not parse key")
 	}
 
-	return cert, certBytes, key.(*rsa.PrivateKey), nil
+	privateKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		return nil, nil, nil, errors.Wrap(err, "can not assert key to private")
+	}
+
+	return cert, certBytes, privateKey, nil
 }
 
 func GenCARoot() (*x509.Certificate, []byte, *rsa.PrivateKey, []byte, error) {

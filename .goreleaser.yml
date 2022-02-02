@@ -1,3 +1,9 @@
+
+release:
+  footer: |
+    ## Docker Images
+    - `paskalmaksim/file-sync:latest`
+    - `paskalmaksim/file-sync:{{ .Tag }}`
 archives:
 - format: binary
 dockers:

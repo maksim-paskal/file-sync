@@ -33,6 +33,8 @@ type Config struct {
 	DestinationDir    *string
 	SyncAddress       *string
 	SyncTimeout       *time.Duration
+	SyncRetryTimeout  *time.Duration
+	SyncRetryCount    *int
 	SSLCrt            *string
 	SSLKey            *string
 	RedisEnabled      *bool
@@ -46,6 +48,8 @@ type Config struct {
 
 const (
 	syncTimeoutDefault = 30 * time.Second
+	syncRetryTimeout   = 5 * time.Second
+	syncRetryCount     = 3
 )
 
 var (
@@ -60,7 +64,9 @@ var (
 		SourceDir:         flag.String("dir.src", "data", "folder"),
 		DestinationDir:    flag.String("dir.dest", "data", "folder"),
 		SyncAddress:       flag.String("sync.address", "localhost:9335", "destination server"),
-		SyncTimeout:       flag.Duration("sync.timeout", syncTimeoutDefault, "destination server"),
+		SyncTimeout:       flag.Duration("sync.timeout", syncTimeoutDefault, "http request timeout"),
+		SyncRetryTimeout:  flag.Duration("sync.retry.timeout", syncRetryTimeout, "period on retry"),
+		SyncRetryCount:    flag.Int("sync.retry.count", syncRetryCount, "max retry count"),
 		SentryDSN:         flag.String("sentry.dsn", os.Getenv("SENTRY_DSN"), "Sentry DSN"),
 		SSLCrt:            flag.String("ssl.crt", "", "path to CA cert"),
 		SSLKey:            flag.String("ssl.key", "", "path to CA key"),

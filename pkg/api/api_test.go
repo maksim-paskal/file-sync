@@ -117,7 +117,13 @@ func TestGetMessageFromValue(t *testing.T) {
 			return
 		}
 
-		js, _ := json.Marshal(result)
+		js, err := json.Marshal(result)
+		if err != nil {
+			t.Error(err)
+
+			return
+		}
+
 		t.Log(string(js))
 
 		if !reflect.DeepEqual(result, test.message) {

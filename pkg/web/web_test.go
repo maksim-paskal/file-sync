@@ -43,6 +43,8 @@ func init() { //nolint: gochecknoinits
 	if err := api.Init(); err != nil {
 		panic(err)
 	}
+
+	web.Init()
 }
 
 func TestRouting_Queue(t *testing.T) {
@@ -70,12 +72,21 @@ func TestRouting_Queue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if string(body) != "ok" {
-		t.Errorf("text %s not OK", string(body))
+	if res.StatusCode == http.StatusOK {
+		t.Error("must be error")
 	}
 
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("status %d not OK", res.StatusCode)
+	stringBody := string(body)
+
+	hosts := web.GetSyncAddress()
+	if len(hosts) != 3 {
+		t.Error("must be 3 hosts")
+	}
+
+	for _, host := range hosts {
+		if !strings.Contains(stringBody, host) {
+			t.Error("text must contain 10.10.10.10", stringBody)
+		}
 	}
 }
 
