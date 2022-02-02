@@ -1,2 +1,6 @@
 sourcedir: "../../examples"
 destinationdir: "../../data-test"
+synctimeout: 1s
+syncretrycount: 0
+
+syncaddress: 10.10.10.10,11.11.11.11,12.12.12.12

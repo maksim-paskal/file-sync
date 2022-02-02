@@ -30,6 +30,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var syncAddress []string
+
+func Init() {
+	// get all address from config
+	syncAddress = strings.Split(*config.Get().SyncAddress, ",")
+}
+
+func GetSyncAddress() []string {
+	return syncAddress
+}
+
 func StartServer() {
 	go func() {
 		_, serverCertBytes, _, serverKeyBytes, err := certs.NewCertificate("file-sync", certs.CertValidityMax)
@@ -153,7 +164,10 @@ func handlerSync(w http.ResponseWriter, r *http.Request) {
 		results.StatusText = "ok"
 	}
 
-	js, _ := json.Marshal(results)
+	js, err := json.Marshal(results)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -225,24 +239,31 @@ func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 			Debug()
 	}
 
-	resultText := "ok"
+	isError := false
+	resultText := make([]string, 0)
 
-	if *config.Get().RedisEnabled {
-		id, err := queue.Add(message)
-		if err != nil {
-			log.
-				WithError(err).
-				WithFields(logrushooksentry.AddRequest(r)).
-				WithField("message", message.String()).
-				Error("error in web.queue.add")
-			metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
+	// send messages to sync addresses
+	for _, address := range syncAddress {
+		message.Destination = address
 
-			return
-		}
+		if *config.Get().RedisEnabled { //nolint: nestif
+			id, err := queue.Add(message)
+			if err != nil {
+				log.
+					WithError(err).
+					WithFields(logrushooksentry.AddRequest(r)).
+					WithField("message", message.String()).
+					Error("error in web.queue.add")
 
-		resultText = id
-	} else {
-		go func() {
+				metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
+
+				isError = true
+
+				resultText = append(resultText, err.Error())
+			} else {
+				resultText = append(resultText, id)
+			}
+		} else {
 			err := api.SendWithRetry(message)
 			if err != nil {
 				log.
@@ -252,21 +273,30 @@ func handlerQueue(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
 					Error("error in web.api.send")
 				metrics.QueueErrorCounter.WithLabelValues(message.Type).Inc()
 
-				return
+				isError = true
+				resultText = append(resultText, err.Error())
+			} else {
+				resultText = append(resultText, "ok")
 			}
-		}()
+		}
 	}
 
 	metrics.QueueRequestCounter.WithLabelValues(message.Type).Inc()
 
-	_, err = w.Write([]byte(resultText))
-	if err != nil {
-		log.
-			WithError(err).
-			WithFields(logrushooksentry.AddRequest(r)).
-			WithField("message", message.String()).
-			Error("error in w.Write")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	httpMessage := strings.Join(resultText, ",")
+
+	if isError {
+		http.Error(w, httpMessage, http.StatusInternalServerError)
+	} else {
+		_, err = w.Write([]byte(httpMessage))
+		if err != nil {
+			log.
+				WithError(err).
+				WithFields(logrushooksentry.AddRequest(r)).
+				WithField("message", message.String()).
+				Error("error in w.Write")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
 

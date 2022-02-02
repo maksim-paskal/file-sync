@@ -4,14 +4,15 @@ test:
 	go fmt ./cmd/main
 	go mod tidy
 	./scripts/test-pkg.sh
-	golangci-lint run -v
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run -v
 	rm -rf data-test
 coverage:
 	go tool cover -html=coverage.out
 testIntegration:
 	CONFIG=config_test.yaml go test -v -count=1 -tags=integration -race ./pkg/queue
 build:
-	goreleaser build --rm-dist --snapshot --skip-validate
+	git tag -d `git tag -l "helm-chart-*"`
+	go run github.com/goreleaser/goreleaser@latest build --rm-dist --snapshot --skip-validate
 	mv ./dist/file-sync_linux_amd64/file-sync ./file-sync
 	docker build --pull . -t paskalmaksim/file-sync:dev
 push:
@@ -19,9 +20,13 @@ push:
 run:
 	rm -rf data
 	go run --race ./cmd/main \
-	-log.level=DEBUG -log.pretty \
+	-log.level=DEBUG \
+	-log.pretty \
 	-redis.enabled \
-	-dir.src=data-src \
+	-sync.address=10.10.10.10,11.11.11.11,12.12.12.12 \
+	-sync.timeout=1s \
+	-sync.retry.count=0 \
+	-dir.src=examples \
 	-ssl.crt=ssl/CA.crt \
 	-ssl.key=ssl/CA.key
 clean:
@@ -67,7 +72,7 @@ heap:
 testChart:
 	helm lint --strict ./charts/file-sync
 	helm template ./charts/file-sync | kubectl apply --dry-run=client -f -
-≈-index:
+chart-index:
 	rm -rf .cr-index
 	mkdir .cr-index
 	cr index \

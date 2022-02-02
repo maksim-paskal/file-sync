@@ -87,6 +87,8 @@ func main() {
 		log.WithError(err).Fatal()
 	}
 
+	web.Init()
+
 	// for redis
 	queue.OnNewValue = func(message api.Message) {
 		err := api.SendWithRetry(message)

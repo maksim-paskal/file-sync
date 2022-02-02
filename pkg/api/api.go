@@ -48,13 +48,12 @@ const (
 	defaultFileMode1  = fs.FileMode(0o777)
 	defaultFileMode2  = fs.FileMode(0o600)
 	defaultFileMode3  = fs.FileMode(0o644)
-	retryMaxCount     = 3
-	retryDuration     = 5 * time.Second
 )
 
 type Message struct {
 	ID                string `json:"id"`
 	Type              string `json:"type"`
+	Destination       string `json:"destination"`
 	FileName          string `json:"fileName"`
 	NewFileName       string `json:"newFileName"`
 	Force             bool   `json:"force"`
@@ -275,7 +274,7 @@ func SendWithRetry(message Message) error {
 	)
 
 	for {
-		results, err = Send(message)
+		results, err = send(message)
 		if err == nil {
 			break
 		}
@@ -285,14 +284,14 @@ func SendWithRetry(message Message) error {
 
 		// retry if send operation has communication errors
 		tryCount++
-		if tryCount >= retryMaxCount {
+		if tryCount >= *config.Get().SyncRetryCount {
 			metrics.QueueMaxRetryCountCounter.WithLabelValues(message.Type).Inc()
 			log.WithField("message", message.String()).WithError(err).Warn("reachout try count")
 
-			break
+			return err
 		}
 
-		time.Sleep(retryDuration)
+		time.Sleep(*config.Get().SyncRetryTimeout)
 	}
 
 	if results.StatusCode != http.StatusOK {
@@ -302,7 +301,7 @@ func SendWithRetry(message Message) error {
 	return nil
 }
 
-func Send(message Message) (Response, error) {
+func send(message Message) (Response, error) {
 	ctx := context.Background()
 
 	results := Response{}
@@ -312,7 +311,7 @@ func Send(message Message) (Response, error) {
 		return results, errors.Wrap(err, "error in json.Marshal")
 	}
 
-	url := fmt.Sprintf("https://%s/api/sync", *config.Get().SyncAddress)
+	url := fmt.Sprintf("https://%s/api/sync", message.Destination)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
@@ -351,7 +350,7 @@ func Send(message Message) (Response, error) {
 		return results, errors.Wrap(err, "error in json.Unmarshal")
 	}
 
-	log.Infof("type=%s,file=%s", results.Type, results.FileName)
+	log.Infof("destination=%s,type=%s,file=%s", message.Destination, results.Type, results.FileName)
 
 	return results, nil
 }
