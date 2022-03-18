@@ -1,3 +1,6 @@
+tag=dev
+image=paskalmaksim/file-sync:$(tag)
+
 test:
 	./scripts/validate-license.sh
 	rm -rf data-test
@@ -14,9 +17,9 @@ build:
 	git tag -d `git tag -l "helm-chart-*"`
 	go run github.com/goreleaser/goreleaser@latest build --rm-dist --snapshot --skip-validate
 	mv ./dist/file-sync_linux_amd64/file-sync ./file-sync
-	docker build --pull . -t paskalmaksim/file-sync:dev
+	docker build --pull . -t $(image)
 push:
-	docker push paskalmaksim/file-sync:dev
+	docker push $(image)
 run:
 	rm -rf data
 	go run --race ./cmd/main \
@@ -91,3 +94,7 @@ chart-upload:
 	--commit "`git rev-parse HEAD`" \
 	--release-name-template "helm-chart-{{ .Version }}" \
 	--token $(CR_TOKEN)
+scan:
+	@trivy image \
+	-ignore-unfixed --no-progress --severity HIGH,CRITICAL \
+	$(image)
