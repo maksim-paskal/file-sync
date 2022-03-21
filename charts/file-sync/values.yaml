@@ -1,4 +1,4 @@
-image: paskalmaksim/file-sync:v0.2.0
+image: paskalmaksim/file-sync:v0.2.2
 imagePullPolicy: IfNotPresent
 
 dataVolume:
