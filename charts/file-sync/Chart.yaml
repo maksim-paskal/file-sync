@@ -1,4 +1,4 @@
 apiVersion: v1
 icon: https://helm.sh/img/helm.svg
 name: file-sync
-version: 1.0.3
+version: 1.0.4
