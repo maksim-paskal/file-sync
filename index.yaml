@@ -2,6 +2,14 @@ apiVersion: v1
 entries:
   file-sync:
   - apiVersion: v1
+    created: "2022-03-21T18:57:56.679517313Z"
+    digest: f2ddded34433eb4523f70f2fcd7996d944f63d3578c9cca2517e26d8cb25e07d
+    icon: https://helm.sh/img/helm.svg
+    name: file-sync
+    urls:
+    - https://github.com/maksim-paskal/file-sync/releases/download/helm-chart-1.0.4/file-sync-1.0.4.tgz
+    version: 1.0.4
+  - apiVersion: v1
     created: "2022-02-02T08:07:19.108305242Z"
     digest: 79b79b331ace5f7674d6a3217aad98f762c9191f1be6452418bd4b864ce02042
     icon: https://helm.sh/img/helm.svg
